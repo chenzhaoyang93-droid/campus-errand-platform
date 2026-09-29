@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>校园跑腿互助平台 · 需求与架构设计文档</title>
+<meta name="description" content="校园跑腿互助平台需求文档与系统架构设计：用户角色、功能需求、非功能需求、底层架构、技术栈选型与演进路线。" />
+<style>
+  :root {
+    --bg: #f6f7fb;
+    --surface: #ffffff;
+    --ink: #1a2233;
+    --ink-2: #55617a;
+    --ink-3: #8a93a8;
+    --brand: #4f46e5;
+    --brand-2: #6366f1;
+    --brand-soft: #eef0ff;
+    --accent: #0ea5e9;
+    --green: #10b981;
+    --amber: #f59e0b;
+    --red: #ef4444;
+    --line: #e6e8f0;
+    --shadow-sm: 0 1px 2px rgba(16, 24, 40, .05);
+    --shadow-md: 0 6px 24px rgba(16, 24, 40, .08);
+    --radius: 14px;
+    --mono: "SFMono-Regular", "JetBrains Mono", Consolas, "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+    font-size: 15px;
+  }
+  a { color: var(--brand); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ---------- Header ---------- */
+  .hero {
+    background: linear-gradient(135deg, #3b35c9 0%, #4f46e5 45%, #6366f1 100%);
+    color: #fff;
+    padding: 64px 24px 72px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::after {
+    content: "";
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(600px 300px at 80% -10%, rgba(255,255,255,.18), transparent 60%),
+      radial-gradient(500px 260px at 10% 110%, rgba(255,255,255,.12), transparent 60%);
+  }
+  .hero-inner { max-width: 1080px; margin: 0 auto; position: relative; z-index: 1; }
+  .hero .badge {
+    display: inline-block; font-size: 12.5px; letter-spacing: .08em;
+    background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.28);
+    padding: 5px 14px; border-radius: 999px; margin-bottom: 20px;
+  }
+  .hero h1 { font-size: 34px; line-height: 1.25; font-weight: 700; letter-spacing: -.01em; }
+  .hero p { margin-top: 14px; font-size: 16px; color: rgba(255,255,255,.85); max-width: 640px; }
+  .hero .meta { margin-top: 26px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .hero .meta span {
+    font-size: 13px; background: rgba(255,255,255,.14);
+    border: 1px solid rgba(255,255,255,.22); padding: 5px 12px; border-radius: 8px;
+  }
+
+  /* ---------- Layout ---------- */
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+  .toc {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(255,255,255,.85); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .toc-inner {
+    max-width: 1080px; margin: 0 auto; padding: 0 24px;
+    display: flex; gap: 4px; overflow-x: auto; white-space: nowrap;
+    scrollbar-width: none;
+  }
+  .toc-inner::-webkit-scrollbar { display: none; }
+  .toc a {
+    color: var(--ink-2); font-size: 13.5px; padding: 14px 12px; display: inline-block;
+    border-bottom: 2px solid transparent; flex-shrink: 0;
+  }
+  .toc a:hover { color: var(--brand); text-decoration: none; }
+  .toc a.active { color: var(--brand); border-bottom-color: var(--brand); font-weight: 600; }
+
+  main { padding: 40px 0 80px; }
+  section { margin-bottom: 44px; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow-sm);
+    padding: 28px 30px; margin-top: 18px;
+  }
+  h2 {
+    font-size: 22px; letter-spacing: -.01em; font-weight: 700;
+    display: flex; align-items: center; gap: 12px;
+  }
+  h2 .num {
+    font-size: 13px; font-weight: 700; color: #fff;
+    background: var(--brand); border-radius: 8px; padding: 3px 10px;
+    letter-spacing: .02em;
+  }
+  h3 { font-size: 16.5px; margin: 26px 0 12px; font-weight: 650; color: var(--ink); }
+  h3:first-child { margin-top: 0; }
+  p { color: var(--ink-2); }
+  p + p { margin-top: 8px; }
+  ul, ol { color: var(--ink-2); padding-left: 22px; }
+  li { margin: 6px 0; }
+  strong { color: var(--ink); }
+  code {
+    font-family: var(--mono); font-size: 13px;
+    background: #eef1f8; color: #3b35c9; padding: 2px 6px; border-radius: 5px;
+  }
+
+  /* ---------- Tables ---------- */
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: #fafbfe; color: var(--ink); font-weight: 600; font-size: 13px; letter-spacing: .02em; }
+  tr:last-child td { border-bottom: none; }
+  td { color: var(--ink-2); }
+  .table-wrap { overflow-x: auto; }
+
+  /* ---------- Callouts / badges ---------- */
+  .tag {
+    display: inline-block; font-size: 12px; font-weight: 600;
+    padding: 2px 9px; border-radius: 6px; margin-right: 6px;
+  }
+  .tag.blue { background: var(--brand-soft); color: var(--brand); }
+  .tag.green { background: #e8f8f1; color: var(--green); }
+  .tag.amber { background: #fff5e0; color: #b45309; }
+  .tag.red { background: #fdecec; color: var(--red); }
+
+  .note {
+    background: var(--brand-soft); border-left: 3px solid var(--brand);
+    padding: 14px 18px; border-radius: 0 10px 10px 0; margin: 16px 0; color: #3730a3;
+  }
+  .note.warn { background: #fff7e6; border-left-color: var(--amber); color: #92400e; }
+  .note strong { color: inherit; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 760px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+
+  .mini-card {
+    background: #fafbfe; border: 1px solid var(--line); border-radius: 10px; padding: 16px;
+  }
+  .mini-card h4 { font-size: 14.5px; margin-bottom: 8px; color: var(--ink); }
+  .mini-card ul { font-size: 13.5px; padding-left: 18px; }
+  .mini-card li { margin: 4px 0; }
+
+  /* ---------- Architecture diagram ---------- */
+  .arch { font-family: var(--mono); font-size: 12px; }
+  .arch .layer {
+    border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px;
+    margin: 8px 0; text-align: center;
+  }
+  .arch .layer-label {
+    display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .06em;
+    color: #fff; border-radius: 6px; padding: 2px 10px; margin-bottom: 8px;
+  }
+  .arch .row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .arch .node {
+    background: #fff; border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 12px; text-align: center; min-width: 96px;
+    box-shadow: var(--shadow-sm);
+  }
+  .arch .node b { display: block; font-size: 12.5px; color: var(--ink); }
+  .arch .node span { font-size: 11px; color: var(--ink-3); }
+  .arch .arrow { text-align: center; color: var(--ink-3); margin: -2px 0; }
+  .l-access .layer-label { background: #0ea5e9; }
+  .l-bff .layer-label { background: #6366f1; }
+  .l-app .layer-label { background: #4f46e5; }
+  .l-app .node { border-top: 2px solid var(--brand); }
+  .l-data .layer-label { background: #10b981; }
+  .l-data .node { border-top: 2px solid var(--green); }
+  .l-base { background: #1a2233; border-color: #1a2233; }
+  .l-base .layer-label { background: rgba(255,255,255,.16); }
+  .l-base .node { background: #232c42; border-color: #33405c; }
+  .l-base .node b { color: #e8ecf5; }
+  .l-base .node span { color: #93a0bd; }
+
+  /* ---------- Milestones ---------- */
+  .steps { position: relative; padding-left: 26px; }
+  .step { position: relative; padding-bottom: 24px; }
+  .step::before {
+    content: ""; position: absolute; left: -22px; top: 6px; width: 12px; height: 12px;
+    border-radius: 50%; background: var(--brand); border: 3px solid var(--brand-soft);
+  }
+  .step::after {
+    content: ""; position: absolute; left: -17px; top: 18px; bottom: -2px; width: 2px;
+    background: var(--line);
+  }
+  .step:last-child::after { display: none; }
+  .step h4 { font-size: 15px; color: var(--ink); margin-bottom: 4px; }
+  .step p { font-size: 13.5px; }
+
+  footer {
+    border-top: 1px solid var(--line); background: #fff;
+    padding: 28px 24px; text-align: center; color: var(--ink-3); font-size: 13px;
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <span class="badge">需求文档 · PRD / SRS</span>
+    <h1>校园跑腿互助平台</h1>
+    <p>面向高校的跑腿互助撮合平台：需求发布、就近接单、资金托管、信用评价、纠纷仲裁的完整闭环。</p>
+    <div class="meta">
+      <span>📄 版本 v1.0</span>
+      <span>📅 2026-09-29</span>
+      <span>🏷️ 状态：设计阶段</span>
+      <span>🔗 公开访问</span>
+    </div>
+  </div>
+</header>
+
+<nav class="toc">
+  <div class="toc-inner">
+    <a href="#overview">01 项目概述</a>
+    <a href="#roles">02 用户与角色</a>
+    <a href="#features">03 功能需求</a>
+    <a href="#nfr">04 非功能需求</a>
+    <a href="#arch">05 系统架构</a>
+    <a href="#stack">06 技术栈</a>
+    <a href="#challenges">07 难点与方案</a>
+    <a href="#roadmap">08 演进路线</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+  <!-- 01 项目概述 -->
+  <section id="overview">
+    <h2><span class="num">01</span>项目概述</h2>
+    <div class="card">
+      <h3>1.1 项目背景</h3>
+      <p>校园是一个半封闭、高密度的生活场景：快递点集中、食堂与超市人流大、楼栋间距离远，学生在取快递、买饭、打印、搬重物等琐事上存在大量「跑腿」需求。与此同时，校内又有大量空闲时间充裕、机动性强的学生愿意有偿互助。传统上这类需求靠微信群、QQ 群、表白墙等分散渠道撮合，存在<strong>信息不透明、无资金担保、纠纷难处理</strong>等问题。</p>
+
+      <h3>1.2 项目目标</h3>
+      <p>构建一个面向单一/多校区的高校跑腿互助平台，实现「需求发布 → 接单撮合 → 在线支付 → 履约确认 → 信用评价 → 纠纷仲裁」的完整闭环。</p>
+
+      <h3>1.3 产品定位</h3>
+      <ul>
+        <li><strong>B2C2C 撮合平台</strong>：平台不自营跑腿，只做信息撮合、资金托管与信用担保。</li>
+        <li><strong>核心价值</strong>：可信（实名认证 + 资金托管）、高效（就近匹配 + 实时沟通）、安全（平台担保 + 双向评价）。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 02 用户与角色 -->
+  <section id="roles">
+    <h2><span class="num">02</span>用户与角色</h2>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>角色</th><th>说明</th><th>核心权限</th></tr></thead>
+          <tbody>
+            <tr><td><strong>普通用户</strong></td><td>校内学生，可同时是发布者/跑腿员</td><td>发布任务、接单、支付、收款、评价</td></tr>
+            <tr><td><strong>认证跑腿员</strong></td><td>通过实名/学生认证的接单者</td><td>接单、履约、提现、接高额单</td></tr>
+            <tr><td><strong>校园代理/楼长</strong><span class="tag amber">可选</span></td><td>负责本楼栋末端配送</td><td>楼栋分拣、代收代发</td></tr>
+            <tr><td><strong>平台运营</strong></td><td>客服/审核</td><td>处理纠纷、审核内容、封禁账号</td></tr>
+            <tr><td><strong>系统管理员</strong></td><td>运维/风控</td><td>全局配置、权限、资金对账</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 03 功能需求 -->
+  <section id="features">
+    <h2><span class="num">03</span>功能需求</h2>
+
+    <div class="card">
+      <h3>3.1 用户与认证模块</h3>
+      <ul>
+        <li>注册登录：手机号 + 短信验证码，支持微信授权登录</li>
+        <li><strong>学生实名认证</strong>：姓名 + 学号 + 校园卡/学生证照片，对接学籍系统或人工审核，防非学生混入</li>
+        <li>跑腿员认证：额外缴纳保证金（或信用分达标免押金）</li>
+        <li>个人中心：余额、订单记录、信用分、常用地址</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>3.2 任务发布模块</h3>
+      <ul>
+        <li><strong>任务类型</strong>：代取快递、代买餐食、代打印、代寄件、代取外卖、代搬重物、代排队等（可配置模板）</li>
+        <li>发布表单：类型、取件/送达地址（校内 POI 选择）、期望时间窗、悬赏金额、备注、是否回传凭证</li>
+        <li><strong>校内 POI 地址库</strong>：宿舍楼/食堂/快递点/教学楼/图书馆，比通用地图更贴合校内场景</li>
+        <li>智能定价建议：按距离/重量/时段给出参考价</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>3.3 接单与履约模块</h3>
+      <ul>
+        <li>任务大厅：列表 + 地图双视图，按距离、时间、类型筛选</li>
+        <li>撮合机制：默认「先到先得」抢单；可扩展为平台派单（就近最优）</li>
+        <li>订单状态机：<code>待接单 → 已接单 → 取件中 → 配送中 → 已完成 / 已取消 / 纠纷中</code></li>
+        <li>履约凭证：取件/送达拍照上传，支持超时提醒</li>
+        <li>取消规则：接单后取消的违约金与信用分扣减</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>3.4 支付与结算模块</h3>
+      <ul>
+        <li><strong>资金托管（担保交易）</strong>：发布者悬赏金先冻结在平台，跑腿员完成并确认后解冻到账——这是平台可信的核心</li>
+        <li>充值/提现：对接微信支付、支付宝；提现 T+1 审核</li>
+        <li>平台抽成：佣金费率可配置（如 5%~10%），含优惠/补贴规则</li>
+        <li>退款：取消/纠纷场景原路退回</li>
+        <li>对账：日/月对账报表，资金流水可追溯</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>3.5 评价与信用模块</h3>
+      <ul>
+        <li>双向评价：发布者 ↔ 跑腿员，评分 + 文字 + 标签</li>
+        <li><strong>信用分体系</strong>：认证、履约率、准时率、评价、违约记录综合计算；低信用限制接单/发布</li>
+        <li>黑名单与风控：恶意刷单、虚假接单、频繁取消的识别与处理</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>3.6 消息与沟通模块</h3>
+      <ul>
+        <li>订单内即时通讯（IM）：文字、图片、语音；<strong>中间号脱敏</strong>保护隐私</li>
+        <li>系统通知：订单状态变更、超时提醒、结算到账（站内信 + 微信服务通知）</li>
+        <li>客服工单：纠纷时介入，查看双方凭证与聊天记录</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>3.7 管理后台</h3>
+      <ul>
+        <li>用户/认证审核、订单查询与干预、资金流水与对账</li>
+        <li>任务类型与定价配置、补贴活动配置</li>
+        <li>风控中心：异常订单、违规账号处理</li>
+        <li>数据看板：日活、订单量、GMV、履约率、客诉率</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 04 非功能需求 -->
+  <section id="nfr">
+    <h2><span class="num">04</span>非功能需求</h2>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>维度</th><th>要求</th></tr></thead>
+          <tbody>
+            <tr><td><strong>性能</strong></td><td>核心接口 P99 &lt; 200ms；任务大厅支持万级并发；抢单写操作防超卖</td></tr>
+            <tr><td><strong>可用性</strong></td><td>目标 99.9%；支付链路幂等、可重试</td></tr>
+            <tr><td><strong>安全</strong></td><td>HTTPS 加密、敏感字段脱敏、支付防篡改签名、越权防护、防注入/XSS</td></tr>
+            <tr><td><strong>一致性</strong></td><td>资金操作强一致（事务/分布式事务）；订单状态最终一致</td></tr>
+            <tr><td><strong>可扩展</strong></td><td>支持多校区横向扩展，用户/订单量增长后可拆分服务</td></tr>
+            <tr><td><strong>合规</strong></td><td>实名制、隐私保护（个人信息保护法）、资金二清/持牌合规</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 05 系统架构 -->
+  <section id="arch">
+    <h2><span class="num">05</span>系统架构（优化后）</h2>
+    <div class="card">
+      <p style="margin-bottom:6px;">优化主线：<strong>读写分离与多级缓存</strong> · <strong>事件驱动解耦</strong> · <strong>资金域强一致</strong>。</p>
+
+      <div class="arch">
+        <div class="layer l-access">
+          <span class="layer-label">接入层</span>
+          <div class="row">
+            <div class="node"><b>小程序 / H5</b><span>用户端</span></div>
+            <div class="node"><b>管理后台</b><span>运营端</span></div>
+            <div class="node"><b>CDN</b><span>静态加速</span></div>
+            <div class="node"><b>WAF</b><span>应用防护</span></div>
+            <div class="node"><b>API Gateway</b><span>鉴权 · 限流 · 签名 · 路由</span></div>
+          </div>
+        </div>
+        <div class="arrow">▼</div>
+        <div class="layer l-bff">
+          <span class="layer-label">BFF 层</span>
+          <div class="row">
+            <div class="node"><b>小程序 BFF</b><span>端侧聚合</span></div>
+            <div class="node"><b>管理后台 BFF</b><span>端侧聚合</span></div>
+          </div>
+        </div>
+        <div class="arrow">▼</div>
+        <div class="layer l-app">
+          <span class="layer-label">应用服务层（按领域拆分）</span>
+          <div class="row">
+            <div class="node"><b>user-svc</b><span>用户 / 认证</span></div>
+            <div class="node"><b>order-svc</b><span>订单 / 撮合</span></div>
+            <div class="node"><b>pay-svc</b><span>资金 / 结算</span></div>
+            <div class="node"><b>comment-svc</b><span>评价 / 信用</span></div>
+            <div class="node"><b>im-svc</b><span>消息 / IM</span></div>
+          </div>
+        </div>
+        <div class="arrow">▼</div>
+        <div class="layer l-data">
+          <span class="layer-label">数据与中间件层</span>
+          <div class="row">
+            <div class="node"><b>MySQL</b><span>主从 + 分表</span></div>
+            <div class="node"><b>Redis</b><span>多级缓存 / GEO</span></div>
+            <div class="node"><b>MQ</b><span>事务消息</span></div>
+            <div class="node"><b>OSS</b><span>凭证图片</span></div>
+            <div class="node"><b>WS 推送</b><span>实时网关</span></div>
+          </div>
+        </div>
+        <div class="arrow">▼</div>
+        <div class="layer l-base">
+          <span class="layer-label">基础底座</span>
+          <div class="row">
+            <div class="node"><b>K8s</b><span>多副本</span></div>
+            <div class="node"><b>SkyWalking</b><span>链路追踪</span></div>
+            <div class="node"><b>Prometheus+Grafana</b><span>监控告警</span></div>
+            <div class="node"><b>ELK</b><span>日志</span></div>
+          </div>
+        </div>
+      </div>
+
+      <h3>优化点对比（上版 → 本版）</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>优化点</th><th>之前</th><th>优化后</th><th>收益</th></tr></thead>
+          <tbody>
+            <tr><td>架构形态</td><td>模块化单体</td><td>领域化微服务（先按领域分包，再平滑拆）</td><td>独立扩缩容、故障隔离</td></tr>
+            <tr><td>接入层</td><td>单一网关</td><td>CDN + WAF + 网关 + 双 BFF</td><td>防攻击、端侧定制</td></tr>
+            <tr><td>读路径</td><td>直查数据库</td><td>CDN/Redis 多级缓存 + 读写分离 + 列表推拉结合</td><td>饭点高峰扛读</td></tr>
+            <tr><td>抢单防超卖</td><td>Redis 锁 + 乐观锁</td><td>锁 + 乐观锁 + DB 唯一约束三重兜底 + 削峰队列</td><td>杜绝超卖</td></tr>
+            <tr><td>状态流转</td><td>同步调用</td><td>事件驱动 + MQ 事务消息 + 显式状态机</td><td>解耦、可重放、可对账</td></tr>
+            <tr><td>资金一致性</td><td>本地事务</td><td>本地事务 + 本地消息表（事务消息）+ 每日对账</td><td>资金不丢不重</td></tr>
+            <tr><td>就近匹配</td><td>楼栋距离</td><td>Redis GEO + Geohash 空间索引</td><td>毫秒级真实就近</td></tr>
+            <tr><td>可观测性</td><td>无</td><td>链路追踪 + 指标 + 日志 + 告警</td><td>排障与容量规划</td></tr>
+            <tr><td>高可用</td><td>单点</td><td>多副本 + Sentinel 熔断降级 + 健康检查</td><td>目标 99.9%</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>三条不妥协的设计原则</h3>
+      <ol>
+        <li><strong>资金域从第一天就强一致</strong>：账户余额变更走本地事务 + 幂等流水 + 对账，绝不用「最终一致」糊弄钱。</li>
+        <li><strong>读多写少靠缓存和推送扛</strong>：任务大厅是推（MQ/WS）不是高频轮询，不让数据库硬扛。</li>
+        <li><strong>通知类、状态类走事件异步，同步 RPC 只留给强一致读写</strong>，避免服务间网状耦合。</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 06 技术栈 -->
+  <section id="stack">
+    <h2><span class="num">06</span>技术栈选型</h2>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>层级</th><th>推荐方案</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td>客户端</td><td>微信小程序（原生 / uni-app）+ H5</td><td>学生端首选小程序，免下载、微信支付/通知打通；uni-app 一套代码多端</td></tr>
+            <tr><td>管理后台前端</td><td>Vue3 + Element Plus（或 React + Ant Design）</td><td>—</td></tr>
+            <tr><td>后端</td><td><strong>Java + Spring Boot 3</strong>（Spring Cloud Alibaba 备用）</td><td>国内生态成熟、招聘友好；备选 Go(Gin) 追求高并发低资源</td></tr>
+            <tr><td>数据库</td><td>MySQL 8（主库）+ 读写分离</td><td>资金、订单、用户等强一致数据</td></tr>
+            <tr><td>缓存</td><td>Redis</td><td>热点缓存、分布式锁、限流、GEO</td></tr>
+            <tr><td>消息队列</td><td>RocketMQ（或 Kafka）</td><td>异步通知、订单流转、削峰</td></tr>
+            <tr><td>实时通信</td><td>WebSocket（Netty / Spring WebSocket）</td><td>IM 与订单状态推送</td></tr>
+            <tr><td>支付</td><td>微信支付 + 支付宝</td><td>校园场景微信为主</td></tr>
+            <tr><td>对象存储</td><td>阿里云 OSS / 腾讯云 COS</td><td>图片凭证</td></tr>
+            <tr><td>搜索</td><td>Elasticsearch（可选，后期）</td><td>任务/评价全文检索</td></tr>
+            <tr><td>部署运维</td><td>Docker + Nginx + 云服务器/容器平台</td><td>初期单机 Docker Compose，后期 K8s</td></tr>
+            <tr><td>监控</td><td>Prometheus + Grafana + SkyWalking + ELK</td><td>指标、链路、日志</td></tr>
+            <tr><td>CI/CD</td><td>Git + GitHub Actions</td><td>自动化构建发布</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 07 难点与方案 -->
+  <section id="challenges">
+    <h2><span class="num">07</span>核心难点与方案</h2>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>难点</th><th>方案</th></tr></thead>
+          <tbody>
+            <tr><td>抢单防超卖</td><td>Redis 分布式锁 / 乐观锁（version 字段）+ 数据库唯一约束兜底</td></tr>
+            <tr><td>资金安全</td><td>账户余额变动用数据库事务 + 流水表；支付回调幂等（唯一流水号）</td></tr>
+            <tr><td>身份可信</td><td>学籍/校园卡审核 + 中间号通话脱敏 + 信用分门槛</td></tr>
+            <tr><td>就近匹配</td><td>校内 POI 库 + 地理围栏；初期可简化为「楼栋距离」，后期上 Redis GEO</td></tr>
+            <tr><td>高峰并发（午/晚饭点）</td><td>读多写少：Redis 缓存 + 任务列表推/拉结合</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 08 演进路线 -->
+  <section id="roadmap">
+    <h2><span class="num">08</span>演进路线与里程碑</h2>
+    <div class="card">
+      <h3>架构演进三步</h3>
+      <div class="steps">
+        <div class="step">
+          <h4>阶段一 · MVP（单体 + 领域分包）</h4>
+          <p>单体应用内按领域严格分包，网关 + Redis + MQ 就位；资金域从第一天独立成「账户子域」并强一致。</p>
+        </div>
+        <div class="step">
+          <h4>阶段二 · 按痛点拆分</h4>
+          <p>优先拆 <code>pay-svc</code>（资金独立扩缩容/合规）与 <code>im-svc</code>（独立技术栈/连接数压力）。</p>
+        </div>
+        <div class="step">
+          <h4>阶段三 · 全量微服务 + 平台化</h4>
+          <p>K8s + 可观测平台 + 风控中心；按「痛点驱动」拆，不按教科书拆。</p>
+        </div>
+      </div>
+
+      <h3>功能里程碑</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>版本</th><th>主题</th><th>内容</th></tr></thead>
+          <tbody>
+            <tr><td><span class="tag blue">MVP</span></td><td>核心闭环</td><td>用户认证 + 发单/接单 + 资金托管 + 微信支付 + 基础 IM + 管理后台</td></tr>
+            <tr><td><span class="tag green">V1.1</span></td><td>信任体系</td><td>信用分、双向评价、纠纷仲裁、保证金</td></tr>
+            <tr><td><span class="tag green">V1.2</span></td><td>体验优化</td><td>就近匹配、地图视图、消息推送、优惠补贴</td></tr>
+            <tr><td><span class="tag amber">V2</span></td><td>规模化</td><td>多校区、服务拆分、风控中心、数据看板</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  校园跑腿互助平台 · 需求与架构设计文档 v1.0 · 公开访问 · 生成于 2026-09-29
+</footer>
+
+<script>
+  // 简单的滚动高亮 + 平滑定位
+  const links = Array.from(document.querySelectorAll('.toc a'));
+  const sections = links.map(a => document.querySelector(a.getAttribute('href')));
+  const map = new Map(links.map((a, i) => [sections[i], a]));
+
+  function onScroll() {
+    let current = sections[0];
+    for (const s of sections) {
+      if (s.getBoundingClientRect().top <= 100) current = s;
+    }
+    links.forEach(a => a.classList.remove('active'));
+    map.get(current).classList.add('active');
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+</script>
+</body>
+</html>
