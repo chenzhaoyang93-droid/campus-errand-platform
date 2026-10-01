@@ -1,6 +1,7 @@
 /**
- * 帮跑校园 · 核心链路冒烟测试（jsdom）
- * 覆盖：XSS 转义 / 表单校验 / 搜索 / 排序 / 状态机(接单→配送→送达→确认) / 微评价标签 /
+ * 帮跑校园 · 核心链路冒烟测试（jsdom，77 条断言）
+ * 覆盖：注册与学籍认证 / 一人一号 / 未认证权限拦截 / 成员切换与数据隔离 /
+ *       XSS 转义 / 表单校验 / 搜索 / 排序 / 状态机(接单→配送→送达→确认) / 微评价标签 /
  *       信用事件账本 / 占座倒计时与延长 / 取件码保险箱 / 顺路拼单 / 紧急接力 / 预约周期 /
  *       动态赏金建议 / 取消发布 / 刷新持久化 / 自接拦截
  * 运行：npm install jsdom && node tests/smoke.test.js
@@ -190,6 +191,74 @@ function newDom(savedRaw) {
   check('自接拦截: 按钮禁用', btn.disabled===true);
   w2.eval(`acceptTask(${myTask.id})`);
   check('自接拦截: 任务未被接走', !!w2.eval('S').tasks.find(t=>t.id===myTask.id));
+
+  // === 15. 注册引导（首访触发） ===
+  const d2 = w2.document;
+  check('引导: 首访展示注册层', d2.getElementById('obLayer').hidden===false);
+  w2.obWxLogin();
+  await sleep(800);
+  check('引导: 微信登录后进入学籍认证', w2.eval('obStep')===2);
+
+  // === 16. 学籍认证注册新成员 ===
+  d2.getElementById('obName').value='李同学';
+  d2.getElementById('obCollege').value='计算机学院';
+  d2.getElementById('obSid').value='2024001234';
+  w2.obUploadCard();
+  await sleep(1000);
+  check('认证: 校园卡 OCR 通过', d2.getElementById('obCardBtn').classList.contains('up'));
+  w2.obSubmitVerify();
+  await sleep(1200);
+  check('认证: 进入完成步骤', w2.eval('obStep')===3);
+  check('认证: 新成员已创建(2位)', w2.eval('S').accounts.length===2);
+  check('认证: 当前成员为新成员', w2.eval('S').name==='李同学' && w2.eval('S').verified===true);
+  check('认证: 信用分从 100 起步', w2.eval('creditScore()')===100);
+  check('认证: 新人无历史订单', w2.eval('S').taken.length===0 && w2.eval('S').posted.length===0);
+  w2.finishOnboard();
+  check('认证: 引导层已关闭', d2.getElementById('obLayer').hidden===true);
+  check('认证: 新人视角信用分显示 100', d2.getElementById('creditNum').textContent==='100');
+
+  // === 17. 未认证成员受限 ===
+  w2.openOnboard();
+  w2.obWxLogin();
+  await sleep(800);
+  d2.getElementById('obName').value='王同学';
+  w2.obSkipVerify();
+  check('未认证: 账号已创建', w2.eval('S').name==='王同学' && w2.eval('S').verified===false);
+  check('未认证: 账号数 3 位', w2.eval('S').accounts.length===3);
+  const tasksBefore = w2.eval('S').tasks.length;
+  const freeTaskId = w2.eval('S').tasks[0].id;
+  w2.acceptTask(freeTaskId);
+  check('未认证: 接单被拦截', w2.eval('S').tasks.length===tasksBefore && w2.eval('S').taken.length===0);
+  w2.submitTask();
+  check('未认证: 发布被拦截', w2.eval('S').posted.length===0);
+  check('未认证: 我的页显示未认证徽章', d2.getElementById('meVerify').classList.contains('warn'));
+  w2.finishOnboard();
+
+  // === 18. 成员切换与一人一号 ===
+  w2.openAccounts();
+  check('成员: 账号列表 3 位', d2.querySelectorAll('#sheetBody .acc-card').length===3);
+  check('成员: 标注当前登录', d2.querySelector('#sheetBody .acc-card.on .acc-sub').textContent.includes('当前登录'));
+  w2.switchAccount('u-demo');
+  check('切换: 回到演示成员杨同学', w2.eval('S').name==='杨同学');
+  check('切换: 信用分随之恢复（各成员独立账本）', w2.eval('creditScore()')===credit());
+  check('切换: 信用分高于新人 100', w2.eval('creditScore()')>100);
+  check('切换: 历史订单与足迹恢复', w2.eval('S').taken.length>0 && w2.eval('S').routes.length>0);
+  check('切换: 我的页昵称同步', d2.getElementById('meName').textContent==='杨同学');
+  check('切换: 认证徽章恢复正常', !d2.getElementById('meVerify').classList.contains('warn'));
+  check('切换: 已认证成员数 2', w2.eval('S').accounts.filter(a=>a.verified).length===2);
+
+  w2.openOnboard();
+  w2.obWxLogin();
+  await sleep(800);
+  d2.getElementById('obName').value='重复学号';
+  d2.getElementById('obSid').value='2024001234';
+  w2.obUploadCard();
+  await sleep(1000);
+  w2.obSubmitVerify();
+  await sleep(1200);
+  check('一人一号: 重复学号被拦截', w2.eval('obForm').err.includes('已完成认证'));
+  check('一人一号: 未新增账号', w2.eval('S').accounts.length===3);
+  w2.closeOnboard();
 
   console.log(`\n==== ${pass} PASS / ${fail} FAIL ====`);
   process.exit(fail?1:0);

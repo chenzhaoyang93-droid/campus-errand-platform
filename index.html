@@ -179,12 +179,45 @@
   .relay-waves .w.cur { background:#fff; color:#d9363e; font-weight:700; box-shadow:0 1px 4px rgba(0,0,0,.08); }
   .relay-waves .w.past { color:#0a8f4c; }
 
+  /* ===== 注册 / 学籍认证（Onboarding） ===== */
+  .ob { position:absolute; inset:0; background:var(--bg); z-index:60; display:flex; flex-direction:column; animation:fade .2s ease; }
+  .ob[hidden] { display:none; }
+  .ob-top { background:linear-gradient(160deg,#07c160 0%,#04a94f 100%); color:#fff; padding:34px 24px 26px; text-align:center; position:relative; flex-shrink:0; }
+  .ob-skip { position:absolute; top:14px; right:16px; font-size:11.5px; color:#fff; border:1px solid rgba(255,255,255,.6); padding:5px 11px; border-radius:14px; }
+  .ob-logo { width:58px; height:58px; border-radius:18px; background:rgba(255,255,255,.22); display:flex; align-items:center; justify-content:center; font-size:28px; margin:0 auto 10px; }
+  .ob-title { font-size:20px; font-weight:700; }
+  .ob-sub { font-size:12.5px; color:rgba(255,255,255,.9); margin-top:6px; line-height:1.65; }
+  .ob-steps { display:flex; align-items:center; justify-content:center; gap:6px; padding:16px 12px 2px; flex-shrink:0; }
+  .ob-step { display:flex; align-items:center; gap:5px; font-size:11.5px; color:var(--text-3); }
+  .ob-step i { width:18px; height:18px; border-radius:50%; background:#dfe3e8; color:#fff; font-style:normal; font-size:11px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .ob-step.on { color:var(--green-dark); font-weight:600; }
+  .ob-step.on i, .ob-step.done i { background:var(--green); }
+  .ob-line { width:14px; height:1px; background:#dfe3e8; }
+  .ob-body { flex:1; overflow-y:auto; padding:12px 18px; }
+  .ob-btns { padding:12px 18px 20px; display:flex; flex-direction:column; gap:9px; border-top:1px solid var(--border); background:#fff; flex-shrink:0; }
+  .btn-lg { height:46px; border-radius:12px; font-size:15px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:8px; }
+  .btn-lg.primary { background:var(--green); color:#fff; }
+  .btn-lg.ghost { background:#fff; color:var(--text-2); border:1px solid var(--border); }
+  .btn-lg:disabled { opacity:.6; }
+  .idcard { width:100%; border:1.5px dashed var(--border); border-radius:12px; padding:18px 12px; text-align:center; color:var(--text-3); font-size:12.5px; background:#fafbfc; }
+  .idcard.up { border-color:var(--green); border-style:solid; background:#f0fdf5; color:var(--green-dark); font-weight:600; }
+  .acc-card { display:flex; align-items:center; gap:12px; background:#fff; border-radius:var(--radius); padding:13px 14px; margin-bottom:9px; border:1.5px solid var(--border); width:100%; text-align:left; }
+  .acc-card.on { border-color:var(--green); background:#f0fdf5; }
+  .acc-av { width:42px; height:42px; border-radius:50%; background:#eef1f4; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
+  .acc-info { flex:1; min-width:0; }
+  .acc-name { font-size:14px; font-weight:600; display:flex; align-items:center; gap:6px; }
+  .acc-sub { font-size:11.5px; color:var(--text-3); margin-top:3px; }
+  .acc-credit { font-size:12.5px; color:var(--green-dark); font-weight:700; flex-shrink:0; }
+
   /* ===== 我的 ===== */
   .me-hero { background:linear-gradient(135deg,#07c160,#0ad48a); padding:26px 20px 56px; color:#fff; }
   .me-info { display:flex; align-items:center; gap:14px; }
   .me-avatar { width:60px; height:60px; border-radius:50%; background:rgba(255,255,255,.25); display:flex; align-items:center; justify-content:center; font-size:26px; border:2px solid rgba(255,255,255,.6); }
   .me-name { font-size:19px; font-weight:700; display:flex; align-items:center; gap:7px; }
-  .verify-badge { font-size:10px; background:rgba(255,255,255,.25); padding:3px 8px; border-radius:8px; font-weight:500; }
+  .verify-badge { font-size:10px; background:rgba(255,255,255,.25); padding:3px 8px; border-radius:8px; font-weight:500; color:#fff; border:0; font-family:inherit; }
+  .verify-badge.warn { background:#fff4e5; color:#a35a00; border:1px solid #ffd591; }
+  .verify-badge.light { background:#e8f8ee; color:var(--green-dark); border:1px solid #b7ecc9; }
+  .verify-badge.light.warn { background:#fff4e5; color:#a35a00; border-color:#ffd591; }
   .me-school { font-size:12.5px; opacity:.85; margin-top:5px; }
   .credit-card { margin:-40px 16px 12px; background:#fff; border-radius:var(--radius); padding:18px; display:flex; align-items:center; gap:18px; box-shadow:0 4px 16px rgba(0,0,0,.06); position:relative; z-index:2; }
   .ring-wrap { position:relative; width:86px; height:86px; flex-shrink:0; }
@@ -428,10 +461,10 @@
     <section class="page" id="page-me" aria-label="个人中心">
       <div class="me-hero">
         <div class="me-info">
-          <div class="me-avatar" aria-hidden="true">🎓</div>
+          <div class="me-avatar" id="meAvatar" aria-hidden="true">🎓</div>
           <div>
-            <div class="me-name">杨同学 <span class="verify-badge">✓ 学籍已认证（模拟）</span></div>
-            <div class="me-school">香港理工大学 · 计算学院</div>
+            <div class="me-name"><span id="meName">杨同学</span><button class="verify-badge" id="meVerify" type="button">✓ 学籍已认证（模拟）</button></div>
+            <div class="me-school" id="meSchool">香港理工大学 · 计算学院</div>
           </div>
         </div>
       </div>
@@ -461,6 +494,8 @@
         <button class="btn-sm ghost" style="width:100%;margin-top:12px" onclick="openShareCard()">📤 生成信用分享卡</button>
       </div>
       <div class="menu">
+        <button class="menu-item" onclick="openAccounts()"><span class="m-ico">👥</span>成员与账号<span class="extra" id="accCount">1 位</span></button>
+        <button class="menu-item" onclick="openOnboard()"><span class="m-ico">🪪</span>注册新成员 / 学籍认证<span class="arrow">›</span></button>
         <button class="menu-item" onclick="toast('💰','钱包为模拟功能')"><span class="m-ico">💰</span>我的钱包<span class="extra" id="balanceTxt">余额 ¥32.5</span></button>
         <button class="menu-item" onclick="openCreditLog()"><span class="m-ico">📊</span>信用分明细（事件账本）<span class="arrow">›</span></button>
         <button class="menu-item" onclick="toast('🛡️','仲裁流程为模拟功能')"><span class="m-ico">🛡️</span>仲裁与客服<span class="arrow">›</span></button>
@@ -476,6 +511,19 @@
     <button class="tab" data-page="me"><div class="t-ico">👤</div><div class="t-lbl">我的</div></button>
     <button class="tab" onclick="window.open('prd.html')"><div class="t-ico">📄</div><div class="t-lbl">PRD</div></button>
   </nav>
+
+  <!-- ========== 注册 / 学籍认证引导 ========== -->
+  <div class="ob" id="obLayer" role="dialog" aria-modal="true" aria-label="注册与学籍认证" hidden>
+    <div class="ob-top">
+      <button class="ob-skip" onclick="skipOnboard()">跳过，用示例账号 →</button>
+      <div class="ob-logo" aria-hidden="true">🏃</div>
+      <div class="ob-title">帮跑校园</div>
+      <div class="ob-sub">校内互助，先认证再互助<br>学籍认证是信任的第一步</div>
+    </div>
+    <div class="ob-steps" id="obSteps"></div>
+    <div class="ob-body" id="obBody"></div>
+    <div class="ob-btns" id="obBtns"></div>
+  </div>
 
   <div class="mask" id="mask" onclick="closeSheet()"></div>
   <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-hidden="true">
@@ -512,10 +560,17 @@ function zoneOf(text){ for (const p in POI_ZONE) if (String(text||'').includes(p
 const STORE_KEY = 'bangpao_campus_v3';
 const DRAFT_KEY = 'bangpao_draft_v3';
 
-function seedState() {
-  const now = Date.now();
+/* 成员字段：一份「账号」= 下面这组字段；切换成员 = 整组替换 */
+const PROFILE_FIELDS = ['name','school','college','avatar','studentId','verified','verifiedAt','creditEvents','user','badges','routes','taken','posted'];
+function pickProfile(p) {
+  const o = {};
+  PROFILE_FIELDS.forEach(k => { if (p && p[k] !== undefined) o[k] = JSON.parse(JSON.stringify(p[k])); });
+  return o;
+}
+function seedDemoProfile(now) {
   return {
-    seq: 1000,
+    name:'杨同学', school:'香港理工大学', college:'计算学院', avatar:'🎓',
+    studentId:'2026****88', verified:true, verifiedAt: now-30*864e5,
     creditEvents: [ /* CreditEvent 账本：信用分由事件聚合 */
       { t:now-6*864e5, type:'order_completed', title:'完成订单「代取快递」', delta:2 },
       { t:now-5*864e5, type:'order_completed', title:'完成订单「代买早餐」', delta:2 },
@@ -523,10 +578,20 @@ function seedState() {
       { t:now-3*864e5, type:'order_completed', title:'完成订单「图书馆占座」', delta:2 },
       { t:now-2*864e5, type:'positive_review', title:'收到「沟通顺畅」评价', delta:1 },
     ],
-    orderEvents: [], /* OrderEvent 账本 */
     user: { completed:23, totalTaken:23, income:156, balance:32.5, monthCompleted:12, onTimeSeed:0.96 },
     badges: ['🌧️ 雨天互助者', '🌱 新手跑手'],
     routes: [{ from:'图书馆', to:'紫荆 5 号楼', n:5, label:'图书馆 → 紫荆 5 号楼' }],
+    taken: [],   /* status: doing | delivering | wait_confirm | done | expired */
+    posted: [ { id:101, ts:now-10*60e3, title:'代取中通快递到 5 号楼', cat:'express', reward:4, status:'open', loc:'菜鸟驿站', dest:'紫荆公寓 5 号楼' } ]
+  };
+}
+
+function seedState() {
+  const now = Date.now();
+  const demo = seedDemoProfile(now);
+  const s = {
+    seq: 1000,
+    orderEvents: [], /* OrderEvent 账本 */
     tasks: [
       { id:1, ts:now-8*60e3, cat:'express', title:'菜鸟驿站取 2 个包裹送到紫荆 3 号楼', desc:'两个小件，一个鞋盒大小一个文件袋。下午没课随时可送。', reward:5, loc:'菜鸟驿站', dest:'紫荆公寓 3 号楼', time:'今天内', urgent:false, relay:null, hasSecret:true, dist:0.4, issuer:'林同学', credit:112, avatar:'林', mine:false },
       { id:2, ts:now-25*60e3, cat:'buy', title:'一食堂带份麻辣烫，送到图书馆北门', desc:'微辣，加宽粉和鱼丸。预算 25 以内，跑腿费另算。在复习期末，救命！', reward:6, loc:'一食堂', dest:'图书馆北门', time:'1 小时内', urgent:true, relay:null, hasSecret:false, dist:0.6, issuer:'王同学', credit:98, avatar:'王', mine:false },
@@ -539,11 +604,13 @@ function seedState() {
       1: { code:'6-2-3018', access:0, logs:[] },
       4: { code:'SF-8890', access:0, logs:[] },
     },
-    taken: [],   /* status: doing | delivering | wait_confirm | done | expired */
-    posted: [ { id:101, ts:now-10*60e3, title:'代取中通快递到 5 号楼', cat:'express', reward:4, status:'open', loc:'菜鸟驿站', dest:'紫荆公寓 5 号楼' } ],
     groups: [],  /* OrderGroup：顺路拼单组 */
-    ui: { cat:'all', sort:'rec', orderTab:'taken', noticeClosed:false }
+    ui: { cat:'all', sort:'rec', orderTab:'taken', noticeClosed:false },
+    onboarded: false,        /* 是否已走过注册/认证引导 */
+    activeId: 'u-demo',      /* 当前登录成员 */
+    accounts: [ Object.assign({ id:'u-demo' }, pickProfile(demo)) ]
   };
+  return Object.assign(s, pickProfile(demo));
 }
 
 let S;
@@ -553,6 +620,17 @@ function load() {
     S = raw ? JSON.parse(raw) : seedState();
     if (!S || !S.tasks || !S.creditEvents) S = seedState();
   } catch(e) { S = seedState(); }
+  migrate();
+}
+/* 老版本数据（无 accounts 字段）迁移：把当前状态包成第一位成员 */
+function migrate() {
+  if (!Array.isArray(S.accounts) || !S.accounts.length) {
+    const legacy = Object.assign({ name:'杨同学', school:'香港理工大学', college:'计算学院', avatar:'🎓', studentId:'2026****88', verified:true, verifiedAt:Date.now() }, pickProfile(S));
+    S.activeId = 'u-demo';
+    S.accounts = [ Object.assign({ id:'u-demo' }, pickProfile(legacy)) ];
+  }
+  if (typeof S.onboarded !== 'boolean') S.onboarded = true; /* 老用户不打断 */
+  if (!S.accounts.some(a=>a.id===S.activeId)) S.activeId = S.accounts[0].id;
 }
 function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch(e){} }
 load();
@@ -712,6 +790,16 @@ function renderOrders() {
 
 /* ================= 渲染：我的 ================= */
 function renderMe() {
+  /* 当前成员信息 */
+  $('#meAvatar').textContent = S.avatar || '👤';
+  $('#meName').textContent = S.name || '未命名同学';
+  $('#meSchool').textContent = [S.school, S.college].filter(Boolean).join(' · ') || '未填写学校';
+  const vb = $('#meVerify');
+  vb.textContent = S.verified ? '✓ 学籍已认证（模拟）' : '⚠ 未认证 · 点此认证';
+  vb.classList.toggle('warn', !S.verified);
+  vb.disabled = !!S.verified;
+  vb.onclick = () => openOnboard();
+  $('#accCount').textContent = (S.accounts ? S.accounts.length : 1) + ' 位成员';
   const credit = creditScore();
   $('#creditNum').textContent = credit;
   $('#creditRing').style.strokeDashoffset = (232.5 * (1 - credit/120)).toFixed(1);
@@ -890,6 +978,7 @@ function markInvalid(inputId, errId, bad) {
   return bad;
 }
 function submitTask() {
+  if (!S.verified) { toast('🪪', '请先完成学籍认证才能发布任务<br>「我的 → 学籍认证」'); return; }
   const title = $('#fTitle').value.trim();
   const reward = parseFloat($('#fReward').value);
   let hasErr = false;
@@ -953,6 +1042,7 @@ function findAlongTask(t) {
   return { task: cand, detour };
 }
 function acceptGroup(mainId, alongId) {
+  if (!S.verified) { toast('🪪','请先完成学籍认证才能接单'); return; }
   const a = S.tasks.find(x=>x.id===mainId), b = S.tasks.find(x=>x.id===alongId);
   if (!a || !b) { toast('😅','有任务刚被抢走，拼单失败'); closeSheet(); renderTasks(); return; } /* 事务：任一被接则整组失败 */
   const gid = ++S.seq;
@@ -970,6 +1060,7 @@ function acceptGroup(mainId, alongId) {
 function acceptTask(id) {
   const t = S.tasks.find(x=>x.id===id); if (!t) return;
   if (t.mine) { toast('😅','不能接自己发布的任务'); return; }
+  if (!S.verified) { toast('🪪','请先完成学籍认证才能接单<br>「我的 → 学籍认证」'); return; }
   if (creditScore() < 80) { toast('🚫','信用分低于 80，已被限制接单'); return; }
   /* 条件更新（生产：UPDATE ... WHERE runner_id IS NULL） */
   S.tasks = S.tasks.filter(x=>x.id!==id);
@@ -1260,6 +1351,214 @@ function openShareCard() {
      <button class="btn-sm primary" onclick="toast('📤','分享图为模拟生成')">保存分享图</button>`);
 }
 
+/* ================= 成员（账号）：注册 / 学籍认证 / 切换 ================= */
+/* 信用分由该成员的 CreditEvent 账本聚合；当前成员的账本取实时值 */
+function creditOf(acc) {
+  const evs = (acc && acc.id === S.activeId) ? S.creditEvents : (acc ? acc.creditEvents : []);
+  return Math.min(120, 100 + (evs || []).reduce((s, e) => s + e.delta, 0));
+}
+function syncActiveProfile() {
+  const i = S.accounts.findIndex(a => a.id === S.activeId);
+  if (i !== -1) S.accounts[i] = Object.assign({ id: S.activeId }, pickProfile(S));
+}
+function switchAccount(id) {
+  if (id === S.activeId) { closeSheet(); return; }
+  const target = S.accounts.find(a => a.id === id); if (!target) return;
+  syncActiveProfile();
+  Object.assign(S, pickProfile(target));
+  S.activeId = id;
+  S.ui.cat = 'all'; S.ui.orderTab = 'taken';
+  S.posted = S.posted || []; S.taken = S.taken || [];
+  save(); closeSheet();
+  $('#searchInput').value = ''; $('#searchClear').classList.remove('show');
+  $$('.cat').forEach(c => { const on = c.dataset.cat === 'all'; c.classList.toggle('on', on); c.setAttribute('aria-selected', on); });
+  $$('.order-tab').forEach(t => { const on = t.dataset.tab === 'taken'; t.classList.toggle('on', on); t.setAttribute('aria-selected', on); });
+  renderTasks(); renderOrders(); renderMe();
+  switchTab('me');
+  toast('👥', `已切换为 <b>${esc(target.name)}</b>`);
+}
+function openAccounts() {
+  const rows = S.accounts.map(a => {
+    const on = a.id === S.activeId;
+    const badge = a.verified
+      ? '<span class="verify-badge light">✓ 已认证</span>'
+      : '<span class="verify-badge light warn">未认证</span>';
+    return `<button class="acc-card ${on ? 'on' : ''}" type="button" onclick="switchAccount('${esc(a.id)}')"${on ? ' aria-current="true"' : ''}>
+      <div class="acc-av" aria-hidden="true">${esc(a.avatar || '👤')}</div>
+      <div class="acc-info">
+        <div class="acc-name">${esc(a.name || '未命名')}${badge}</div>
+        <div class="acc-sub">${esc([a.school, a.college].filter(Boolean).join(' · ') || '未填写学校')}${on ? ' · 当前登录' : ''}</div>
+      </div>
+      <div class="acc-credit">信用 ${creditOf(a)}</div>
+    </button>`;
+  }).join('');
+  openSheet(`
+    <div class="sheet-title">成员与账号</div>
+    <div class="sheet-sec"><p>演示版支持在同一设备切换成员，方便体验「发布者 / 跑腿员」双方视角。生产中每个账号由微信 openid 唯一绑定，<b>学籍认证一人一号</b>，认证成功不可转让。</p></div>
+    ${rows}
+    <div class="sheet-sec" style="margin-top:4px"><p><b>邀请同学：</b>同学用微信打开链接 → 一键登录 → 学籍认证，即成为同校互助成员（模拟）。</p></div>`,
+    `<button class="btn-sm ghost" onclick="closeSheet()">关闭</button>
+     <button class="btn-sm primary" onclick="openOnboard()">＋ 注册新成员</button>`);
+}
+
+/* ================= 注册 / 学籍认证（Onboarding） ================= */
+const OB_STEPS = ['微信登录', '学籍认证', '开始使用'];
+const OB_SCHOOLS = ['香港理工大学', '深圳大学', '中山大学', '华南理工大学', '其他院校'];
+let obStep = 1;
+let obForm = {};
+
+function openOnboard() {
+  closeSheet();
+  obStep = 1;
+  obForm = { name: '', school: S.school || '香港理工大学', college: '', studentId: '', cardUploaded: false, err: '' };
+  $('#obLayer').hidden = false;
+  renderOnboard();
+}
+function closeOnboard() { $('#obLayer').hidden = true; }
+function skipOnboard() {
+  closeOnboard();
+  S.onboarded = true; save();
+  renderMe();
+  toast('👋', '已进入演示成员 <b>杨同学</b><br>可在「我的 → 成员与账号」注册新成员');
+}
+function renderOnboard() {
+  $('#obSteps').innerHTML = OB_STEPS.map((t, i) => {
+    const n = i + 1, cls = n === obStep ? 'on' : (n < obStep ? 'done' : '');
+    return (i ? '<span class="ob-line"></span>' : '') + `<span class="ob-step ${cls}"><i>${n < obStep ? '✓' : n}</i>${t}</span>`;
+  }).join('');
+
+  if (obStep === 1) {
+    $('#obBody').innerHTML = `
+      <div class="ob-card">
+        <div style="font-size:14px;font-weight:600;margin-bottom:8px">微信一键登录</div>
+        <p style="font-size:12.5px;color:var(--text-2);line-height:1.75">原型演示：生产中调用 wx.login 换取 openid，无需设置密码，学生零门槛进入。</p>
+      </div>
+      <div class="ob-card" style="background:#f0fdf5">
+        <p style="font-size:12.5px;color:var(--green-dark);line-height:1.75"><b>为什么先登录？</b>跑腿涉及赏金托管与信用累积，账号是信用的载体——信用分、履约记录、徽章都挂在账号上。</p>
+      </div>`;
+    $('#obBtns').innerHTML = `
+      <button class="btn-lg primary" id="obWxBtn" onclick="obWxLogin()">微信一键登录（模拟）</button>
+      <button class="btn-lg ghost" onclick="skipOnboard()">先看看示例成员 →</button>`;
+    return;
+  }
+
+  if (obStep === 2) {
+    $('#obBody').innerHTML = `
+      <div class="ob-card">
+        <h3 style="font-size:14px;font-weight:600;margin-bottom:12px">学籍实名认证</h3>
+        <div class="form-row">
+          <label for="obName">昵称</label>
+          <input id="obName" maxlength="12" placeholder="用于展示，如 杨同学" value="${esc(obForm.name)}">
+        </div>
+        <div class="form-row">
+          <label for="obSchool">学校</label>
+          <select id="obSchool">${OB_SCHOOLS.map(s => `<option${s === obForm.school ? ' selected' : ''}>${s}</option>`).join('')}</select>
+        </div>
+        <div class="form-row">
+          <label for="obCollege">学院 / 专业</label>
+          <input id="obCollege" maxlength="20" placeholder="如 计算学院" value="${esc(obForm.college)}">
+        </div>
+        <div class="form-row">
+          <label for="obSid">学号（6–16 位字母或数字）</label>
+          <input id="obSid" maxlength="16" placeholder="用于一人一号核验" value="${esc(obForm.studentId)}" autocomplete="off">
+          <div class="field-err${obForm.err ? ' show' : ''}" id="obErr">${esc(obForm.err || '')}</div>
+        </div>
+      </div>
+      <div class="ob-card">
+        <div style="font-size:14px;font-weight:600;margin-bottom:10px">校园卡 / 学生证核验</div>
+        <button class="idcard${obForm.cardUploaded ? ' up' : ''}" id="obCardBtn" type="button" onclick="obUploadCard()">${obForm.cardUploaded ? '✓ 已上传，OCR 识别通过（模拟）' : '📷 点击上传校园卡（模拟 OCR 识别）'}</button>
+        <p style="font-size:11.5px;color:var(--text-3);margin-top:8px;line-height:1.7">按「最小必要」原则采集，核验完成后立即销毁原图（模拟）。</p>
+      </div>`;
+    $('#obBtns').innerHTML = `
+      <button class="btn-lg primary" id="obSubmitBtn" onclick="obSubmitVerify()">提交认证</button>
+      <button class="btn-lg ghost" onclick="obSkipVerify()">暂不认证，先逛逛（功能受限）</button>`;
+    return;
+  }
+
+  const acc = S.accounts.find(a => a.id === S.activeId) || {};
+  $('#obBody').innerHTML = `
+    <div class="ob-card" style="text-align:center;padding:26px 16px">
+      <div style="font-size:46px" aria-hidden="true">${acc.verified ? '✅' : '👋'}</div>
+      <div style="font-size:16px;font-weight:700;margin:12px 0 8px">${acc.verified ? '学籍认证通过' : '已进入体验模式'}</div>
+      <p style="font-size:12.5px;color:var(--text-2);line-height:1.75">${acc.verified ? '你已成为同校互助成员，信用分从 <b>100</b> 起步，完成订单与收到好评都会累积信用。' : '未认证状态下可以浏览任务，但<b>不能发布或接单</b>。随时可在「我的」完成认证。'}</p>
+    </div>
+    <div class="ob-card">
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px">当前权限</div>
+      <div style="font-size:12.5px;color:var(--text-2);line-height:2">
+        ${acc.verified
+          ? '✓ 发布任务 / 接单跑腿<br>✓ 赏金托管与结算<br>✓ 占座、取件码保险箱等特色任务'
+          : '○ 发布任务 / 接单跑腿（需先认证）<br>○ 赏金托管与结算（需先认证）<br>✓ 浏览任务广场（可体验）'}
+      </div>
+    </div>`;
+  $('#obBtns').innerHTML = `<button class="btn-lg primary" onclick="finishOnboard()">进入帮跑校园</button>`;
+}
+
+function obWxLogin() {
+  const btn = $('#obWxBtn'); btn.disabled = true; btn.textContent = '微信授权中…';
+  setTimeout(() => { obForm.name = obForm.name || '新同学'; obStep = 2; renderOnboard(); }, 700);
+}
+function obUploadCard() {
+  const btn = $('#obCardBtn'); btn.disabled = true; btn.textContent = 'OCR 识别中…（模拟）';
+  /* 重渲染前先回读表单，避免已填内容被重置 */
+  setTimeout(() => { obReadForm(); obForm.cardUploaded = true; obForm.err = ''; renderOnboard(); }, 900);
+}
+function obReadForm() {
+  const g = id => { const el = $('#' + id); return el ? el.value.trim() : ''; };
+  if (obStep === 2) {
+    obForm.name = g('obName'); obForm.school = g('obSchool');
+    obForm.college = g('obCollege'); obForm.studentId = g('obSid');
+  }
+}
+function obSubmitVerify() {
+  obReadForm();
+  if (!obForm.name) { obForm.err = '请填写昵称'; renderOnboard(); return; }
+  if (!/^[A-Za-z0-9]{6,16}$/.test(obForm.studentId)) { obForm.err = '学号需为 6–16 位字母或数字'; renderOnboard(); return; }
+  if (!obForm.cardUploaded) { obForm.err = '请上传校园卡完成核验'; renderOnboard(); return; }
+  const btn = $('#obSubmitBtn'); btn.disabled = true; btn.textContent = '学籍核验中…（模拟）';
+  setTimeout(() => {
+    if (S.accounts.some(a => a.studentId && a.studentId === obForm.studentId)) {
+      obForm.err = '该学号已完成认证，请直接切换该账号'; renderOnboard(); return;
+    }
+    obForm.err = '';
+    createAndActivate({ name: obForm.name, school: obForm.school, college: obForm.college, studentId: obForm.studentId, verified: true });
+    obStep = 3; renderOnboard();
+    toast('🎉', '学籍认证通过（模拟）<br>信用分 100 起步');
+  }, 1000);
+}
+function obSkipVerify() {
+  obReadForm();
+  createAndActivate({ name: obForm.name || '新同学', school: obForm.school, college: obForm.college, studentId: '', verified: false });
+  obStep = 3; renderOnboard();
+}
+function createAndActivate(form) {
+  syncActiveProfile();
+  const id = 'u' + Date.now().toString(36);
+  const acc = {
+    id, name: form.name, school: form.school, college: form.college || '未填写',
+    avatar: (form.name || '新').slice(0, 1), studentId: form.studentId || '',
+    verified: !!form.verified, verifiedAt: form.verified ? Date.now() : null,
+    creditEvents: form.verified ? [{ t: Date.now(), type: 'identity_verified', title: '完成学籍认证（模拟）', delta: 0 }] : [],
+    user: { completed: 0, totalTaken: 0, income: 0, balance: 0, monthCompleted: 0, onTimeSeed: 1 },
+    badges: [], routes: [], taken: [], posted: []
+  };
+  S.accounts.push(Object.assign({ id }, pickProfile(acc)));
+  Object.assign(S, pickProfile(acc));
+  S.activeId = id;
+  S.onboarded = true;
+  S.ui.cat = 'all'; S.ui.orderTab = 'taken';
+  save();
+  $$('.cat').forEach(c => { const on = c.dataset.cat === 'all'; c.classList.toggle('on', on); c.setAttribute('aria-selected', on); });
+  $$('.order-tab').forEach(t => { const on = t.dataset.tab === 'taken'; t.classList.toggle('on', on); t.setAttribute('aria-selected', on); });
+  renderTasks(); renderOrders(); renderMe();
+}
+function finishOnboard() {
+  closeOnboard();
+  S.onboarded = true; save();
+  $('#searchInput').value = ''; $('#searchClear').classList.remove('show');
+  renderTasks(); renderMe();
+  switchTab('home');
+}
+
 /* ================= 重置 ================= */
 function resetDemo() {
   openSheet(`
@@ -1270,7 +1569,8 @@ function resetDemo() {
 }
 function doReset() {
   try { localStorage.removeItem(STORE_KEY); localStorage.removeItem(DRAFT_KEY); } catch(e){}
-  S = seedState(); save();
+  S = seedState(); S.onboarded = true; save();
+  $('#obLayer').hidden = true;
   $('#searchInput').value=''; $('#searchClear').classList.remove('show');
   ['fTitle','fDest','fDesc','fReward','fSecret'].forEach(fid=>$('#'+fid).value='');
   $$('.cat').forEach(c=>c.classList.toggle('on', c.dataset.cat==='all'));
@@ -1318,6 +1618,8 @@ $$('.order-tab').forEach(t=>{ const on = t.dataset.tab===S.ui.orderTab; t.classL
 loadDraft();
 renderTasks();
 renderMe();
+/* 首次访问：走注册 / 学籍认证引导 */
+if (!S.onboarded) openOnboard();
 </script>
 </body>
 </html>
