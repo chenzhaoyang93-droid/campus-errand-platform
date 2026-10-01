@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>帮跑校园 · 产品需求文档（PRD）</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  :root {
+    --green:#07c160; --ink:#1f2329; --ink-2:#5a6069; --ink-3:#8f959e;
+    --line:#e8eaee; --bg:#f7f8fa; --card:#fff; --orange:#ff8a00; --red:#fa5151; --blue:#3b82f6; --purple:#8b5cf6;
+  }
+  body { font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--ink); line-height:1.75; }
+  .wrap { max-width:880px; margin:0 auto; padding:0 20px 80px; }
+
+  /* 头部 */
+  header { background:linear-gradient(135deg,#07c160,#0ad48a); color:#fff; padding:52px 0 44px; margin-bottom:32px; }
+  header .wrap { padding-bottom:0; }
+  .doc-tag { display:inline-block; font-size:12px; background:rgba(255,255,255,.2); padding:4px 12px; border-radius:12px; margin-bottom:14px; letter-spacing:1px; }
+  header h1 { font-size:32px; font-weight:800; letter-spacing:.5px; }
+  header .sub { margin-top:10px; font-size:15px; opacity:.92; }
+  .meta { display:flex; flex-wrap:wrap; gap:24px; margin-top:22px; font-size:13px; opacity:.9; }
+  .demo-btn { display:inline-block; margin-top:24px; background:#fff; color:var(--green); font-weight:700; font-size:14px; padding:11px 26px; border-radius:22px; text-decoration:none; box-shadow:0 4px 14px rgba(0,0,0,.15); }
+
+  /* 章节 */
+  section { background:var(--card); border-radius:14px; padding:28px 30px; margin-bottom:18px; box-shadow:0 1px 4px rgba(0,0,0,.04); }
+  h2 { font-size:20px; font-weight:800; margin-bottom:16px; padding-left:12px; border-left:4px solid var(--green); line-height:1.4; }
+  h2 .no { color:var(--green); margin-right:6px; }
+  h3 { font-size:15.5px; font-weight:700; margin:20px 0 8px; }
+  p { font-size:14px; color:var(--ink-2); margin-bottom:8px; }
+  ul, ol { padding-left:22px; font-size:14px; color:var(--ink-2); }
+  li { margin-bottom:5px; }
+  b, strong { color:var(--ink); }
+  .hl { background:#fff6d6; padding:0 4px; border-radius:3px; color:var(--ink); font-weight:600; }
+
+  /* 表格 */
+  table { width:100%; border-collapse:collapse; font-size:13px; margin:12px 0; }
+  th { background:#f2f4f7; color:var(--ink); font-weight:600; text-align:left; padding:9px 12px; border:1px solid var(--line); white-space:nowrap; }
+  td { padding:9px 12px; border:1px solid var(--line); color:var(--ink-2); vertical-align:top; }
+  tr:nth-child(even) td { background:#fafbfc; }
+
+  /* 痛点卡片 */
+  .pain-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; margin-top:12px; }
+  .pain { border:1px solid var(--line); border-radius:12px; padding:16px; }
+  .pain .p-ico { font-size:24px; }
+  .pain h4 { font-size:14px; margin:8px 0 4px; }
+  .pain p { font-size:12.5px; margin:0; }
+
+  /* 方案三支柱 */
+  .pillars { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-top:12px; }
+  .pillar { border-radius:12px; padding:18px; color:#fff; }
+  .pillar.p1 { background:linear-gradient(135deg,#07c160,#0ad48a); }
+  .pillar.p2 { background:linear-gradient(135deg,#3b82f6,#60a5fa); }
+  .pillar.p3 { background:linear-gradient(135deg,#ff8a00,#ffb020); }
+  .pillar h4 { font-size:15px; margin-bottom:8px; }
+  .pillar p { color:rgba(255,255,255,.92); font-size:12.5px; margin:0; }
+
+  /* 流程图 */
+  .flow { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:14px 0; }
+  .flow .node { background:#f2f4f7; border:1.5px solid var(--line); border-radius:10px; padding:9px 14px; font-size:12.5px; font-weight:600; color:var(--ink); text-align:center; }
+  .flow .node.green { background:#e9f9f0; border-color:var(--green); color:#0a8f4c; }
+  .flow .node.orange { background:#fff3e2; border-color:var(--orange); color:#c26a00; }
+  .flow .arrow { color:var(--ink-3); font-size:14px; }
+
+  /* 信用分 */
+  .credit-scale { display:flex; border-radius:10px; overflow:hidden; margin:12px 0; font-size:12px; color:#fff; text-align:center; }
+  .credit-scale div { padding:10px 4px; }
+  .cs1 { flex:80; background:var(--red); } .cs2 { flex:10; background:var(--orange); } .cs3 { flex:20; background:var(--green); } .cs4 { flex:20; background:#0a8f4c; }
+
+  /* 指标 */
+  .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-top:12px; }
+  .kpi { border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+  .kpi .k-lbl { font-size:12px; color:var(--ink-3); }
+  .kpi .k-val { font-size:22px; font-weight:800; color:var(--green); margin-top:4px; }
+  .kpi .k-desc { font-size:11.5px; color:var(--ink-2); margin-top:4px; }
+
+  .roadmap { position:relative; padding-left:22px; margin-top:10px; }
+  .roadmap::before { content:""; position:absolute; left:6px; top:6px; bottom:6px; width:2px; background:var(--line); }
+  .rm-item { position:relative; margin-bottom:18px; }
+  .rm-item::before { content:""; position:absolute; left:-20px; top:6px; width:10px; height:10px; border-radius:50%; background:var(--green); border:2px solid #fff; box-shadow:0 0 0 2px var(--green); }
+  .rm-item h4 { font-size:14px; }
+  .rm-item p { font-size:13px; margin:2px 0 0; }
+
+  footer { text-align:center; color:var(--ink-3); font-size:12px; margin-top:32px; }
+  @media (max-width:600px){ header h1{font-size:24px;} section{padding:20px;} }
+  @media print { body{background:#fff;} header{-webkit-print-color-adjust:exact; print-color-adjust:exact;} section{box-shadow:none; border:1px solid var(--line); break-inside:avoid;} }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <span class="doc-tag">产品需求文档 · PRD v1.0</span>
+    <h1>帮跑校园 —— 校园跑腿互助平台</h1>
+    <div class="sub">基于学籍认证 · 赏金托管 · 信用体系的可信校内互助平台</div>
+    <div class="meta">
+      <span>📱 形态：微信小程序（Demo 为 Web 高保真原型）</span>
+      <span>👤 作者：杨辰钊</span>
+      <span>📅 日期：2026-10</span>
+    </div>
+    <a class="demo-btn" href="index.html">▶ 打开可交互 Demo</a>
+  </div>
+</header>
+
+<div class="wrap">
+
+<!-- 1 -->
+<section>
+  <h2><span class="no">01</span>项目背景与问题定义</h2>
+  <p>大学校园内,<b>代取快递、代买餐食、代占座</b>等跑腿需求高频且刚性：快递点离宿舍远、食堂排队久、图书馆一座难求。目前的解决方案主要是<b>宿舍群 / 互助群里喊话</b>,存在三个结构性问题：</p>
+  <div class="pain-grid">
+    <div class="pain"><div class="p-ico">🕳️</div><h4>信息不对称</h4><p>需求散落在几十个大群里,消息秒沉;有空余时间想赚外快的同学,根本不知道谁需要帮助。</p></div>
+    <div class="pain"><div class="p-ico">⚠️</div><h4>信任无保障</h4><p>对方是谁、靠不靠谱完全未知;先给钱怕跑路、先跑腿怕赖账,取件码等敏感信息不敢给。</p></div>
+    <div class="pain"><div class="p-ico">🤷</div><h4>违约零成本</h4><p>口头约定没有约束,放鸽子、坐地起价没有后果;长期参与者反而和投机者待遇相同。</p></div>
+  </div>
+  <h3>问题定义</h3>
+  <p>校园跑腿的本质是一个<span class="hl">双边撮合市场</span>,撮合效率不难做,真正缺的是<b>「信任基础设施」</b>——如何让两个陌生学生在 30 分钟内建立起「敢把快递码给对方」的信任。这是本产品的核心命题,也是与「群里喊话」的本质差异。</p>
+</section>
+
+<!-- 2 -->
+<section>
+  <h2><span class="no">02</span>目标用户与核心场景</h2>
+  <table>
+    <tr><th>角色</th><th>画像</th><th>核心诉求</th><th>典型场景</th></tr>
+    <tr><td><b>需求方（发布者）</b></td><td>时间被占用的学生:上课冲突、期末复习、生病卧床、不在校内</td><td>快、稳、不被放鸽子;敏感信息（取件码）不泄露</td><td>「在图书馆复习走不开,帮我把快递从驿站带过来,出 5 块」</td></tr>
+    <tr><td><b>供给方（跑手）</b></td><td>时间碎片化的学生:顺路、没课、想赚零花钱</td><td>顺路变现、赏金有保障不被赖账</td><td>「反正要去食堂吃饭,顺手帮带一份,赚 6 块跑腿费」</td></tr>
+  </table>
+  <p>双边角色<b>同池互换</b>——同一个用户这单是发布者、下单是跑手,这是校园场景区别于外卖骑手的最大特点,也是信用体系必须<b>双向通用</b>的原因。</p>
+</section>
+
+<!-- 3 -->
+<section>
+  <h2><span class="no">03</span>产品方案：三大信任机制</h2>
+  <p>针对「信任」这一核心命题,产品设计三大机制作为护城河：</p>
+  <div class="pillars">
+    <div class="pillar p1"><h4>🎓 学籍实名认证</h4><p>学号 + 校园卡拍照 OCR 认证,一人一号,头像带认证标。把「群里的陌生人」变成「可追责的同校同学」,信任的第一步。</p></div>
+    <div class="pillar p2"><h4>🛡️ 赏金平台托管</h4><p>发布任务时赏金先付到平台托管,发布者确认完成后才结算给跑手;纠纷可申请客服仲裁。双方都不怕被骗。</p></div>
+    <div class="pillar p3"><h4>⭐ 信用分体系</h4><p>初始 100 分,履约加分、违约扣分,分数直接挂钩接单权限与流量分配。让守信者获益、失信者出局。</p></div>
+  </div>
+</section>
+
+<!-- 4 -->
+<section>
+  <h2><span class="no">04</span>功能结构</h2>
+  <table>
+    <tr><th>模块</th><th>功能点</th><th>说明</th><th>优先级</th></tr>
+    <tr><td rowspan="2"><b>账户与认证</b></td><td>微信一键登录</td><td>小程序免注册</td><td>P0</td></tr>
+    <tr><td>学籍认证</td><td>学号 + 校园卡 OCR,人工复核兜底</td><td>P0</td></tr>
+    <tr><td rowspan="3"><b>任务广场</b></td><td>任务信息流</td><td>分类筛选（快递/代买/占座/其他）、排序（综合/赏金/最新/距离）</td><td>P0</td></tr>
+    <tr><td>加急标记</td><td>1 小时时限任务自动打「加急」标并置顶加权</td><td>P1</td></tr>
+    <tr><td>信用外显</td><td>卡片直接展示发布者信用分,辅助接单决策</td><td>P0</td></tr>
+    <tr><td rowspan="3"><b>发布任务</b></td><td>结构化发布表单</td><td>类型 / 地点（校内 POI 快捷选择）/ 赏金 / 时限 / 说明</td><td>P0</td></tr>
+    <tr><td>赏金托管支付</td><td>发布即支付到平台托管账户</td><td>P0</td></tr>
+    <tr><td>敏感信息隔离</td><td>取件码等仅在接单后通过站内私信可见</td><td>P0</td></tr>
+    <tr><td rowspan="3"><b>接单履约</b></td><td>一键接单</td><td>接单后任务锁定,他人不可重复接</td><td>P0</td></tr>
+    <tr><td>送达凭证</td><td>跑手拍照上传,发布者确认</td><td>P0</td></tr>
+    <tr><td>仲裁通道</td><td>超时未确认自动结算;争议单冻结赏金转人工</td><td>P1</td></tr>
+    <tr><td rowspan="2"><b>信用体系</b></td><td>信用分 + 明细</td><td>规则见第 06 章</td><td>P0</td></tr>
+    <tr><td>双向评价</td><td>确认完成后双方互评,评价计入信用</td><td>P1</td></tr>
+    <tr><td><b>钱包</b></td><td>余额 / 提现 / 流水</td><td>托管赏金、跑腿收入、提现到零钱</td><td>P0</td></tr>
+  </table>
+</section>
+
+<!-- 5 -->
+<section>
+  <h2><span class="no">05</span>核心业务流程</h2>
+  <h3>发布 → 履约主流程</h3>
+  <div class="flow">
+    <span class="node">发布任务<br><small>填写信息</small></span><span class="arrow">→</span>
+    <span class="node green">赏金托管<br><small>微信支付</small></span><span class="arrow">→</span>
+    <span class="node">任务上架广场</span><span class="arrow">→</span>
+    <span class="node orange">跑手接单<br><small>任务锁定</small></span><span class="arrow">→</span>
+    <span class="node">私信取件码</span><span class="arrow">→</span>
+    <span class="node orange">送达拍照<br><small>上传凭证</small></span><span class="arrow">→</span>
+    <span class="node green">确认完成<br><small>赏金结算</small></span><span class="arrow">→</span>
+    <span class="node">双向评价<br><small>信用更新</small></span>
+  </div>
+  <h3>异常分支</h3>
+  <ul>
+    <li><b>跑手超时未履约：</b>发布者可取消,赏金全额原路退回,跑手信用 -10,30 分钟内限制接单。</li>
+    <li><b>发布者拒绝确认：</b>跑手可申诉,上传凭证后进入 24h 倒计时,超时自动确认结算。</li>
+    <li><b>双方争议：</b>赏金冻结,客服介入仲裁,依据聊天记录与凭证裁决,败诉方信用 -15。</li>
+  </ul>
+</section>
+
+<!-- 6 -->
+<section>
+  <h2><span class="no">06</span>信用分体系设计</h2>
+  <p>信用分是产品的中枢规则,设计原则:<span class="hl">违约成本远高于违约收益,守信有即时正反馈</span>。</p>
+  <h3>计分规则</h3>
+  <table>
+    <tr><th>行为</th><th>分值变化</th><th>设计理由</th></tr>
+    <tr><td>注册并完成学籍认证</td><td>初始 <b>100</b> 分</td><td>满分 120 起步留出奖惩空间</td></tr>
+    <tr><td>按时完成一单</td><td><b>+2</b></td><td>履约可积累,约 50 单可到金牌</td></tr>
+    <tr><td>收到 5 星好评</td><td><b>+1</b></td><td>鼓励服务质量,不只求完成</td></tr>
+    <tr><td>接单后超时 / 爽约</td><td><b>−10</b></td><td>违约一次 ≈ 白跑 5 单,痛感足够</td></tr>
+    <tr><td>投诉成立（欺诈/私自加价）</td><td><b>−15</b></td><td>恶性行为重罚,两次即出局</td></tr>
+  </table>
+  <h3>分数段位与权益挂钩</h3>
+  <div class="credit-scale">
+    <div class="cs1">&lt;80 禁止接单<br>仅可发布</div>
+    <div class="cs2">80–90<br>限接 1 单</div>
+    <div class="cs3">90–110<br>正常权限</div>
+    <div class="cs4">≥110 金牌跑手<br>置顶 + 优先推送</div>
+  </div>
+  <h3>场景化规则：代占座的特殊约束</h3>
+  <p>占座是校园场景特有的「道德灰区」需求,平台不禁止但设规则:<b>占位保留上限 40 分钟</b>,发布时必须写明,跑手拍照计时,超时被占走不算违约。用规则把灰区需求框进可履约的范围内,而不是假装它不存在。</p>
+</section>
+
+<!-- 7 -->
+<section>
+  <h2><span class="no">07</span>商业模式与冷启动</h2>
+  <h3>冷启动（单校验证）</h3>
+  <ul>
+    <li><b>种子供给：</b>先招 50 名「认证跑手」,前 100 单每单额外补贴 ¥2,保证广场「有单可接」。</li>
+    <li><b>种子需求：</b>在快递驿站、食堂门口张贴二维码,主打「下雨天/考试周」两个情绪峰值场景。</li>
+    <li><b>单点打透：</b>只做一所学校、跑通履约闭环后再复制——校园市场是天然的蜂窝结构,密度比广度重要。</li>
+  </ul>
+  <h3>盈利模式</h3>
+  <table>
+    <tr><th>阶段</th><th>模式</th><th>说明</th></tr>
+    <tr><td>早期</td><td><b>免费 + 补贴</b></td><td>不抽佣,先把双边密度做起来</td></tr>
+    <tr><td>中期</td><td><b>按单抽佣 8–10%</b></td><td>从托管赏金中抽取,校园客单价 ¥3–15,单均收入 ¥0.3–1.5</td></tr>
+    <tr><td>后期</td><td><b>增值与广告</b></td><td>加急置顶竞价、校园商家入驻（打印店/奶茶店官方代送）</td></tr>
+  </table>
+</section>
+
+<!-- 8 -->
+<section>
+  <h2><span class="no">08</span>数据指标（北极星与护栏）</h2>
+  <p><b>北极星指标：周完成订单数（Verified Completed Orders）</b>——只有「完成」才代表信任机制真正运转。</p>
+  <div class="kpi-grid">
+    <div class="kpi"><div class="k-lbl">履约完成率</div><div class="k-val">≥ 90%</div><div class="k-desc">接单后 24h 内确认完成的比例,信任机制的试金石</div></div>
+    <div class="kpi"><div class="k-lbl">接单响应时长</div><div class="k-val">≤ 15min</div><div class="k-desc">发布到被接单的中位时长,衡量双边密度</div></div>
+    <div class="kpi"><div class="k-lbl">7 日复购率</div><div class="k-val">≥ 35%</div><div class="k-desc">发布者一周内再次发布,验证需求真实性</div></div>
+    <div class="kpi"><div class="k-lbl">纠纷率（护栏）</div><div class="k-val">≤ 2%</div><div class="k-desc">进入仲裁的订单占比,超线则回查信用规则</div></div>
+  </div>
+</section>
+
+<!-- 9 -->
+<section>
+  <h2><span class="no">09</span>迭代规划</h2>
+  <div class="roadmap">
+    <div class="rm-item"><h4>V1.0 MVP（本次 Demo 范围）</h4><p>发布 / 接单 / 托管结算 / 信用分 / 学籍认证,跑通单校闭环。</p></div>
+    <div class="rm-item"><h4>V1.5 效率与体验</h4><p>顺路单推荐（基于跑手常用动线）、加急竞价置顶、IM 聊天、评价体系细化。</p></div>
+    <div class="rm-item"><h4>V2.0 规模化</h4><p>多校区复制、商家入驻（打印/奶茶/花店官方代送）、跑手等级体系与成长任务。</p></div>
+  </div>
+</section>
+
+<!-- 10 -->
+<section>
+  <h2><span class="no">10</span>技术选型说明</h2>
+  <ul>
+    <li><b>目标形态为微信小程序：</b>学生触达成本最低、微信支付与登录原生打通、无需下载。</li>
+    <li><b>本次交付为 Web 高保真可交互原型（零依赖单页 HTML）：</b>保证评审链接<b>域名固定、永久可访问、点开即玩</b>,完整还原任务广场、发布、接单、订单流转、信用体系五大流程。</li>
+    <li><b>落地实现路径：</b>微信小程序原生框架 + 云开发（云数据库 / 云函数 / 微信支付）,托管赏金走微信支付分账接口,学籍 OCR 调腾讯云 OCR。</li>
+  </ul>
+</section>
+
+</div>
+<footer>帮跑校园 PRD v1.0 · 杨辰钊 · <a href="index.html" style="color:var(--green)">返回 Demo</a></footer>
+</body>
+</html>
