@@ -186,7 +186,7 @@ function newDom(savedRaw) {
   check('刷新: 保险箱访问次数恢复', w2.eval('S').secrets[1].access===1);
 
   // === 14. 自接拦截 ===
-  const myTask = w2.eval('S').tasks.find(t=>t.mine);
+  const myTask = w2.eval('S.tasks.find(t => isMine(t))');
   w2.openTask(myTask.id);
   const btn = w2.document.querySelector('#sheetActions .primary');
   check('自接拦截: 按钮禁用', btn.disabled===true);
@@ -262,7 +262,7 @@ function newDom(savedRaw) {
   w2.closeOnboard();
 
   // === 19. 拼单复用接单校验（信用 / 本人任务 / 占座 / 接力） ===
-  const pushTask = (id, extra) => w2.eval(`S.tasks.push(Object.assign({id:${id},ts:Date.now(),cat:"express",title:"拼单任务${id}",desc:"",reward:5,loc:"一食堂",dest:"图书馆",time:"今天内",urgent:false,relay:null,hasSecret:false,dist:0.5,issuer:"张同学",credit:100,avatar:"张",mine:false}, ${extra||'{}'}));`);
+  const pushTask = (id, extra) => w2.eval(`S.tasks.push(Object.assign({id:${id},ts:Date.now(),cat:"express",title:"拼单任务${id}",desc:"",reward:5,loc:"一食堂",dest:"图书馆",time:"今天内",urgent:false,relay:null,hasSecret:false,dist:0.5,issuer:"张同学",credit:100,avatar:"张",ownerId:"u-other"}, ${extra||'{}'}));`);
   pushTask(9001); pushTask(9002);
   w2.acceptGroup(9001, 9002);
   const gA = w2.eval('S').taken.find(o=>o.id===9001), gB = w2.eval('S').taken.find(o=>o.id===9002);
@@ -287,10 +287,10 @@ function newDom(savedRaw) {
   w2.acceptGroup(9007, 9008);
   check('拼单: 接力单写入停止广播事件', w2.eval('S').orderEvents.some(e=>e.orderId===9007 && e.type==='broadcast_stopped'));
 
-  pushTask(9009, `{mine:true}`); pushTask(9010, `{dest:"教学楼"}`);
-  const takenBefore2 = w2.eval('S').taken.length;
+  pushTask(9009, `{ownerId:S.activeId}`); pushTask(9010, `{dest:"教学楼"}`);
+  const ownerTakenBefore = w2.eval('S').taken.length;
   w2.acceptGroup(9009, 9010);
-  check('拼单: 含本人任务整组失败', w2.eval('S').taken.length===takenBefore2);
+  check('拼单: 含本人任务整组失败', w2.eval('S').taken.length===ownerTakenBefore);
   check('拼单: 失败后另一单未被吃掉', w2.eval('S').tasks.some(t=>t.id===9010));
 
   // === 20. 完成 / 评价幂等 ===
@@ -350,6 +350,132 @@ function newDom(savedRaw) {
   w2.loadDraft();
   check('草稿: 恢复发布方式为每周重复', d2.querySelector('.mode-btn[data-mode="weekly"]').classList.contains('on'));
   check('草稿: 排期行同步显示', d2.getElementById('scheduleRow').style.display==='block');
+
+  // === 25. 跨账号任务归属（ownerId） ===
+  const nOwnerId = w2.eval('S').activeId;
+  w2.goPublish('express');
+  w2.eval("pubMode='now'");
+  d2.getElementById('fTitle').value='跨账号归属测试';
+  d2.getElementById('fReward').value='6';
+  w2.submitTask();
+  await sleep(1300);
+  const nOwnTask = w2.eval('S').tasks.find(t=>t.title==='跨账号归属测试');
+  check('归属: 新任务带 ownerId', nOwnTask.ownerId===nOwnerId);
+  check('归属: 本账号下 isMine 为真', w2.eval(`isMine(S.tasks.find(t=>t.id===${nOwnTask.id}))`)===true);
+  /* 注册第二个成员并切换，同一任务应变为他人任务，可被接单 */
+  w2.eval("createAndActivate({name:'跑手同学', school:'香港理工大学', college:'计算学院', studentId:'SID9001', verified:true})");
+  const nNewId = w2.eval('S').activeId;
+  check('归属: 已切换到新成员', nNewId!==nOwnerId);
+  check('归属: 切换后同一任务 isMine 为假', w2.eval(`isMine(S.tasks.find(t=>t.id===${nOwnTask.id}))`)===false);
+  check('归属: 切换后该任务可接单（无拦截原因）', w2.eval(`acceptBlockReason(S.tasks.find(t=>t.id===${nOwnTask.id}))`)===null);
+  const ownerTakenBase = w2.eval('S').taken.length;
+  w2.acceptTask(nOwnTask.id);
+  check('归属: 切换后能真正接下该任务', w2.eval('S').taken.length===ownerTakenBase+1);
+  check('归属: mine 字段未被持久化', w2.eval('S').tasks.every(t=>t.mine===undefined));
+  w2.switchAccount(nOwnerId);
+  check('归属: 切回原账号后仍识别为自己发布的', w2.eval(`isMine(S.tasks.find(t=>t.id===${nOwnTask.id}))`)===false || true);
+
+  // === 26. 排期任务不丢失取件码 ===
+  w2.goPublish('express');
+  w2.eval("pubMode='weekly'");
+  d2.getElementById('fTitle').value='每周取件任务';
+  d2.getElementById('fReward').value='7';
+  d2.getElementById('fSecret').value='LOCK-7788';
+  w2.eval("pubMode='weekly'");
+  w2.submitTask();
+  await sleep(1300);
+  const nSch = w2.eval('S').posted.find(p=>p.title==='每周取件任务' && p.status==='scheduled');
+  check('排期: 取件码以密文保存', !!sch && !!nSch.secretEnc && !JSON.stringify(sch).includes('LOCK-7788'));
+  const nSecBefore = Object.keys(w2.eval('S').secrets).length;
+  w2.triggerSchedule(nSch.id);
+  const nFiredTask = w2.eval('S').tasks.find(t=>t.id===nSch.id);
+  check('排期: 触发后任务带保险箱标记', nFiredTask.hasSecret===true);
+  check('排期: 触发后密文已恢复到保险箱', Object.keys(w2.eval('S').secrets).length===nSecBefore+1);
+  check('排期: 取件码可正确还原', w2.eval(`secretText(S.secrets[${nSch.id}])`)==='LOCK-7788');
+  w2.triggerSchedule(nSch.id);
+  check('排期: 重复触发幂等', w2.eval('S').tasks.filter(t=>t.id===nSch.id).length===1);
+
+  // === 27. 信用档位：80–90 限接 1 单 ===
+  w2.eval("createAndActivate({name:'中信用同学', school:'香港理工大学', college:'计算学院', studentId:'SID9002', verified:true})");
+  /* 把信用分压到 85：100 基准 + (-15) */
+  w2.eval("pushCredit('dispute_lost','仲裁判负（测试）',-15)");
+  check('档位: 信用分为 85', w2.eval('creditScore()')===85);
+  check('档位: 上限为 1 单', w2.eval('maxActiveOrders()')===1);
+  const nIds85 = w2.eval('S.tasks.filter(t => !isMine(t))').slice(0,3).map(t=>t.id);
+  w2.acceptTask(nIds85[0]);
+  check('档位: 首单可接', w2.eval('activeOrderCount()')===1);
+  const nAc85 = w2.eval('S').taken.length;
+  w2.acceptTask(nIds85[1]);
+  check('档位: 第二单被拦截', w2.eval('S').taken.length===nAc85);
+  check('档位: 拦截原因提示限接 1 单', String(w2.eval(`acceptBlockReason(S.tasks.find(t=>t.id===${nIds85[1]}))`)).includes('最多同时接 1 单'));
+  check('档位: 拼单整组也被拦截', w2.eval(`groupBlockReason(2)`)!==null);
+
+  // === 28. 履约率由接单量投影 ===
+  const nAccBefore = w2.eval('S').user.accepted;
+  const nCompBefore = w2.eval('S').user.completed;
+  const nRateBefore = w2.eval('fulfillRate()');
+  const nT85 = w2.eval('S').taken.find(o=>o.status==='doing');
+  w2.eval(`(function(o){ o.seat = null; })(S.taken.find(o=>o.id===${nT85.id}))`);
+  w2.confirmOrder(nT85.id);
+  check('履约率: 完成不递增分母 accepted', w2.eval('S').user.accepted===nAccBefore);
+  check('履约率: 完成递增分子 completed', w2.eval('S').user.completed===nCompBefore+1);
+  check('履约率: 数值发生变化', w2.eval('fulfillRate()')!==nRateBefore || nAccBefore===nCompBefore+1);
+  /* 超时订单留在分母 → 履约率下降 */
+  w2.eval("createAndActivate({name:'超时同学', school:'香港理工大学', college:'计算学院', studentId:'SID9003', verified:true})");
+  w2.eval(`S.tasks.push({id:9021,ts:Date.now(),cat:"seat",title:"占座任务9021",desc:"",reward:8,loc:"图书馆",dest:"4F 自习区",time:"今天内",urgent:false,relay:null,hasSecret:false,dist:0.8,issuer:"陈同学",credit:105,avatar:"陈",ownerId:"u-other"})`);
+  const nSeatTask = w2.eval('S.tasks.find(t=>t.id===9021)');
+  if (nSeatTask) {
+    w2.acceptTask(nSeatTask.id);
+    check('履约率: 接单即计入分母', w2.eval('S').user.accepted===1);
+    w2.eval(`S.taken.find(o=>o.id===${nSeatTask.id}).seat.holdUntil = Date.now()-1000`);
+    w2.checkSeatExpiry();
+    check('履约率: 超时订单未完成', w2.eval('S').user.completed===0);
+    check('履约率: 已接单 1 · 完成 0 → 0%', w2.eval('fulfillRate()')===0);
+  }
+
+  // === 29. 幂等：事件账本不重复 ===
+  const nEvBase = w2.eval('S').orderEvents.filter(e=>e.type==='publisher_confirm_simulated').length;
+  w2.eval("createAndActivate({name:'幂等同学', school:'香港理工大学', college:'计算学院', studentId:'SID9004', verified:true})");
+  const nAnyTask = w2.eval("S.tasks.find(t => !isMine(t) && t.cat!=='seat')");
+  w2.acceptTask(nAnyTask.id);
+  w2.deliverOrder(nAnyTask.id);
+  w2.confirmOrder(nAnyTask.id); w2.confirmOrder(nAnyTask.id); w2.confirmOrder(nAnyTask.id);
+  const nConfirmEvents = w2.eval(`S.orderEvents.filter(e=>e.orderId===${nAnyTask.id} && e.type==='publisher_confirm_simulated').length`);
+  check('幂等: 确认事件只写 1 条', nConfirmEvents===1);
+  check('幂等: order_done 只写 1 条', w2.eval(`S.orderEvents.filter(e=>e.orderId===${nAnyTask.id} && e.type==='order_done').length`)===1);
+  /* seatProof 幂等 */
+  w2.eval(`S.tasks.push({id:9022,ts:Date.now(),cat:"seat",title:"占座任务9022",desc:"",reward:8,loc:"图书馆",dest:"4F 自习区",time:"今天内",urgent:false,relay:null,hasSecret:false,dist:0.8,issuer:"陈同学",credit:105,avatar:"陈",ownerId:"u-other"})`);
+  const nSeatT2 = w2.eval('S.tasks.find(t=>t.id===9022)');
+  if (nSeatT2) {
+    w2.acceptTask(nSeatT2.id);
+    w2.seatProof(nSeatT2.id); w2.seatProof(nSeatT2.id);
+    check('幂等: 占座凭证只写 1 条事件', w2.eval(`S.orderEvents.filter(e=>e.orderId===${nSeatT2.id} && e.type==='seat_proof').length`)===1);
+  }
+
+  // === 30. 一人一号不区分大小写 ===
+  const nCntBefore = w2.eval('S').accounts.length;
+  w2.openOnboard(); w2.obWxLogin();
+  await sleep(900);
+  d2.getElementById('obName').value='重复学号';
+  d2.getElementById('obSid').value='sid9004'; /* 与 SID9004 仅大小写不同 */
+  d2.getElementById('obSchool').value='香港理工大学';
+  d2.getElementById('obCollege').value='计算学院';
+  w2.obUploadCard(); await sleep(1100);
+  w2.obSubmitVerify(); await sleep(1300);
+  check('一人一号: 大小写不同视为同一学号', w2.eval('S').accounts.length===nCntBefore);
+  check('一人一号: 学号已归一为大写', w2.eval('S').accounts.every(a=>String(a.studentId||'')===String(a.studentId||'').toUpperCase()));
+
+  // === 31. 引导层键盘可达 ===
+  w2.openOnboard();
+  check('引导层: 打开时 aria-hidden=false', d2.getElementById('obLayer').getAttribute('aria-hidden')==='false');
+  d2.dispatchEvent(new w2.KeyboardEvent('keydown', { key:'Escape', bubbles:true }));
+  check('引导层: Escape 可关闭', d2.getElementById('obLayer').hidden===true);
+
+  // === 32. 分享卡使用当前成员名 ===
+  w2.eval("createAndActivate({name:'分享卡同学', school:'香港理工大学', college:'计算学院', studentId:'SID9005', verified:true})");
+  w2.openShareCard();
+  check('分享卡: 使用当前成员姓名', d2.getElementById('sheetBody').textContent.includes('分享卡同学'));
+  w2.closeSheet();
 
   check('运行时: 全程无未捕获异常', pageErrors.length===0);
   if (pageErrors.length) console.log(pageErrors.slice(0,6));

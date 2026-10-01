@@ -14,6 +14,6 @@ jobs:
         with:
           node-version: '24'
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci
       - name: Run core-flow smoke tests
         run: npm test

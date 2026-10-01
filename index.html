@@ -229,6 +229,8 @@
   .credit-info h4 { font-size:14px; }
   .credit-info p { font-size:12px; color:var(--text-2); margin-top:5px; line-height:1.6; }
   .credit-info .lvl { color:var(--green); font-weight:600; }
+  .credit-info .quota { margin-top:8px; padding-top:8px; border-top:1px dashed var(--line); }
+  .credit-info .quota b { color:var(--orange); }
   .stats-row { display:grid; grid-template-columns:repeat(3,1fr); background:#fff; border-radius:var(--radius); margin:0 16px 12px; padding:16px 0; }
   .stat { text-align:center; }
   .stat b { font-size:19px; }
@@ -477,6 +479,7 @@
         <div class="credit-info">
           <h4>信用等级：<span class="lvl" id="creditLvl">良好</span></h4>
           <p>信用分 = 100 + Σ 信用事件<br>履约 +2 · 准时 +1 · 好评 +1</p>
+          <p class="quota">当前可同时接单：<b id="statQuota">不限</b><br><span style="font-size:11px">80–90 档限 1 单 · 低于 80 禁止接单</span></p>
         </div>
       </div>
       <div class="stats-row">
@@ -489,7 +492,7 @@
         <div class="passport-grid">
           <div class="pp-item"><div class="pp-lbl">本月完成</div><div class="pp-val" id="ppMonth">12 单</div></div>
           <div class="pp-item"><div class="pp-lbl">准时率</div><div class="pp-val" id="ppOnTime">96%</div></div>
-          <div class="pp-item" style="grid-column:1/-1"><div class="pp-lbl">最长履约路线</div><div class="pp-val" id="ppRoute" style="font-size:13px">图书馆 → 紫荆 5 号楼</div></div>
+          <div class="pp-item" style="grid-column:1/-1"><div class="pp-lbl">最常履约路线（按单量）</div><div class="pp-val" id="ppRoute" style="font-size:13px">图书馆 → 紫荆 5 号楼</div></div>
         </div>
         <div class="badges-row" id="badgesRow"></div>
         <button class="btn-sm ghost" style="width:100%;margin-top:12px" onclick="openShareCard()">📤 生成信用分享卡</button>
@@ -579,7 +582,8 @@ function seedDemoProfile(now) {
       { t:now-3*864e5, type:'order_completed', title:'完成订单「图书馆占座」', delta:2 },
       { t:now-2*864e5, type:'positive_review', title:'收到「沟通顺畅」评价', delta:1 },
     ],
-    user: { completed:23, totalTaken:23, income:156, balance:32.5, monthCompleted:12, onTimeSeed:0.96 },
+    /* accepted：接单事务中递增（履约率分母）；completed / income 由订单事件投影累加 */
+    user: { completed:23, accepted:23, income:156, balance:32.5, monthCompleted:12, onTimeSeed:0.96 },
     badges: ['🌧️ 雨天互助者', '🌱 新手跑手'],
     routes: [{ from:'图书馆', to:'紫荆 5 号楼', n:5, label:'图书馆 → 紫荆 5 号楼' }],
     taken: [],   /* status: doing | delivering | wait_confirm | done | expired */
@@ -594,12 +598,12 @@ function seedState() {
     seq: 1000,
     orderEvents: [], /* OrderEvent 账本 */
     tasks: [
-      { id:1, ts:now-8*60e3, cat:'express', title:'菜鸟驿站取 2 个包裹送到紫荆 3 号楼', desc:'两个小件，一个鞋盒大小一个文件袋。下午没课随时可送。', reward:5, loc:'菜鸟驿站', dest:'紫荆公寓 3 号楼', time:'今天内', urgent:false, relay:null, hasSecret:true, dist:0.4, issuer:'林同学', credit:112, avatar:'林', mine:false },
-      { id:2, ts:now-25*60e3, cat:'buy', title:'一食堂带份麻辣烫，送到图书馆北门', desc:'微辣，加宽粉和鱼丸。预算 25 以内，跑腿费另算。在复习期末，救命！', reward:6, loc:'一食堂', dest:'图书馆北门', time:'1 小时内', urgent:true, relay:null, hasSecret:false, dist:0.6, issuer:'王同学', credit:98, avatar:'王', mine:false },
-      { id:3, ts:now-45*60e3, cat:'seat', title:'明早 8 点图书馆 4 楼靠窗占座', desc:'考研党，需要靠窗有插座的位置。（平台规则：占位保留上限 40 分钟，超时自动释放）', reward:8, loc:'图书馆', dest:'4F 自习区', time:'明天中午前', urgent:false, relay:null, hasSecret:false, dist:0.8, issuer:'陈同学', credit:105, avatar:'陈', mine:false },
-      { id:4, ts:now-5*60e3, cat:'express', title:'顺丰取件，文件急用！', desc:'一份实习证明材料，顺丰柜取件，需要 1 小时内送到教学楼 A305。', reward:10, loc:'顺丰点', dest:'教学楼 A305', time:'1 小时内', urgent:true, relay:{ startedAt:now-5*60e3 }, hasSecret:true, dist:1.2, issuer:'赵同学', credit:95, avatar:'赵', mine:false },
-      { id:5, ts:now-70*60e3, cat:'other', title:'帮搬宿舍行李下楼（两件）', desc:'周末搬宿舍，两个行李箱从 5 楼搬到楼下，有电梯但电梯口到楼下有一段台阶。', reward:15, loc:'紫荆公寓', dest:'楼下', time:'今天内', urgent:false, relay:null, hasSecret:false, dist:0.3, issuer:'周同学', credit:121, avatar:'周', mine:false },
-      { id:6, ts:now-100*60e3, cat:'buy', title:'校门口奶茶店带两杯杨枝甘露', desc:'都要正常冰三分糖，到店自取报手机尾号即可，钱我转你。', reward:4, loc:'校门口', dest:'紫荆公寓 5 号楼', time:'今天内', urgent:false, relay:null, hasSecret:false, dist:1.5, issuer:'吴同学', credit:88, avatar:'吴', mine:false },
+      { id:1, ts:now-8*60e3, cat:'express', title:'菜鸟驿站取 2 个包裹送到紫荆 3 号楼', desc:'两个小件，一个鞋盒大小一个文件袋。下午没课随时可送。', reward:5, loc:'菜鸟驿站', dest:'紫荆公寓 3 号楼', time:'今天内', urgent:false, relay:null, hasSecret:true, dist:0.4, issuer:'林同学', credit:112, avatar:'林', ownerId:'u-lin' },
+      { id:2, ts:now-25*60e3, cat:'buy', title:'一食堂带份麻辣烫，送到图书馆北门', desc:'微辣，加宽粉和鱼丸。预算 25 以内，跑腿费另算。在复习期末，救命！', reward:6, loc:'一食堂', dest:'图书馆北门', time:'1 小时内', urgent:true, relay:null, hasSecret:false, dist:0.6, issuer:'王同学', credit:98, avatar:'王', ownerId:'u-wang' },
+      { id:3, ts:now-45*60e3, cat:'seat', title:'明早 8 点图书馆 4 楼靠窗占座', desc:'考研党，需要靠窗有插座的位置。（平台规则：占位保留上限 40 分钟，超时自动释放）', reward:8, loc:'图书馆', dest:'4F 自习区', time:'明天中午前', urgent:false, relay:null, hasSecret:false, dist:0.8, issuer:'陈同学', credit:105, avatar:'陈', ownerId:'u-chen' },
+      { id:4, ts:now-5*60e3, cat:'express', title:'顺丰取件，文件急用！', desc:'一份实习证明材料，顺丰柜取件，需要 1 小时内送到教学楼 A305。', reward:10, loc:'顺丰点', dest:'教学楼 A305', time:'1 小时内', urgent:true, relay:{ startedAt:now-5*60e3 }, hasSecret:true, dist:1.2, issuer:'赵同学', credit:95, avatar:'赵', ownerId:'u-zhao' },
+      { id:5, ts:now-70*60e3, cat:'other', title:'帮搬宿舍行李下楼（两件）', desc:'周末搬宿舍，两个行李箱从 5 楼搬到楼下，有电梯但电梯口到楼下有一段台阶。', reward:15, loc:'紫荆公寓', dest:'楼下', time:'今天内', urgent:false, relay:null, hasSecret:false, dist:0.3, issuer:'周同学', credit:121, avatar:'周', ownerId:'u-zhou' },
+      { id:6, ts:now-100*60e3, cat:'buy', title:'校门口奶茶店带两杯杨枝甘露', desc:'都要正常冰三分糖，到店自取报手机尾号即可，钱我转你。', reward:4, loc:'校门口', dest:'紫荆公寓 5 号楼', time:'今天内', urgent:false, relay:null, hasSecret:false, dist:1.5, issuer:'吴同学', credit:88, avatar:'吴', ownerId:'u-wu' },
     ],
     secrets: { /* SecurePayload：只存密文 enc，明文永不落盘 */
       1: { enc: obf('6-2-3018'), access:0, logs:[] },
@@ -637,12 +641,36 @@ function migrate() {
     const s = S.secrets[k];
     if (s && typeof s.code === 'string' && !s.enc) { s.enc = obf(s.code); delete s.code; }
   });
+  /* 任务归属：mine 是会话派生字段，一律改为按 ownerId 动态判断 */
+  (S.tasks || []).forEach(t => {
+    if (!t.ownerId) t.ownerId = t.mine ? S.activeId : ('u-other-' + t.id);
+    delete t.mine;
+  });
+  /* 履约率分母：老版本 totalTaken 与 completed 同步递增，口径错误，迁移为接单量 */
+  [S].concat(S.accounts || []).forEach(p => {
+    if (!p || !p.user) return;
+    if (typeof p.user.accepted !== 'number') {
+      p.user.accepted = Math.max(p.user.totalTaken || 0, p.user.completed || 0);
+    }
+    delete p.user.totalTaken;
+  });
 }
 function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch(e){} }
 load();
 
 /* ================= 事件账本 ================= */
+/* 任务归属：mine 永不持久化，始终由 ownerId 与当前成员派生 */
+function isMine(t){ return !!(t && t.ownerId && t.ownerId === S.activeId); }
 function creditScore(){ return Math.min(120, 100 + S.creditEvents.reduce((s,e)=>s+e.delta,0)); }
+/* 信用档位：可同时进行的订单上限（doing/delivering/wait_confirm 均占用额度） */
+const ACTIVE_STATUS = ['doing','delivering','wait_confirm'];
+function activeOrderCount(){ return (S.taken || []).filter(o => ACTIVE_STATUS.includes(o.status)).length; }
+function maxActiveOrders(){ const c = creditScore(); return c < 80 ? 0 : (c < 90 ? 1 : Infinity); }
+/* 履约率：分母为接单量（含已超时/已取消），分子为成功完成量，均由订单事件投影 */
+function fulfillRate(){
+  const u = S.user || {};
+  return u.accepted ? Math.round(u.completed / u.accepted * 100) : 100;
+}
 function pushCredit(type, title, delta){ S.creditEvents.unshift({ t:Date.now(), type, title, delta }); }
 function pushOrderEvent(orderId, type, note){ S.orderEvents.push({ t:Date.now(), orderId, type, note:note||'' }); }
 
@@ -814,9 +842,10 @@ function renderMe() {
   $('#creditLvl').textContent = lvl;
   const u = S.user;
   $('#statCompleted').textContent = u.completed;
-  const rate = u.totalTaken ? Math.round(u.completed / u.totalTaken * 100) : 100;
-  $('#statRate').textContent = rate + '%';
+  $('#statRate').textContent = fulfillRate() + '%';
   $('#statIncome').textContent = '¥' + u.income;
+  const limit = maxActiveOrders();
+  $('#statQuota').textContent = limit === Infinity ? '不限' : (limit + ' 单');
   $('#balanceTxt').textContent = '余额 ¥' + (Math.round(u.balance*10)/10);
   /* 信用护照：从事件与订单聚合 */
   const doneThisMonth = u.monthCompleted + S.taken.filter(o=>o.status==='done').length;
@@ -1017,13 +1046,16 @@ function submitTask() {
         reward, loc, dest, time:$('#fDeadline').value, urgent: $('#fDeadline').value==='1 小时内',
         relay, hasSecret: !!secret,
         dist: Math.round((0.2 + Math.random()*1.3)*10)/10,
-        issuer:'我', credit:creditScore(), avatar:'我', mine:true });
+        issuer:'我', credit:creditScore(), avatar:'我', ownerId:S.activeId });
       if (secret) S.secrets[id] = { enc: obf(secret), access:0, logs:[] };
-      S.posted.unshift({ id, ts:Date.now(), title, cat:pubType, reward, status:'open', loc, dest, relay, timeAgo:'刚刚发布' });
+      S.posted.unshift({ id, ts:Date.now(), title, cat:pubType, reward, status:'open', loc, dest, relay, ownerId:S.activeId, hasSecret: !!secret, timeAgo:'刚刚发布' });
       pushOrderEvent(id, 'task_published', relay ? '紧急接力任务发布' : '任务发布');
     } else {
       const label = $('#fSchedule').value;
-      S.posted.unshift({ id, ts:Date.now(), title, cat:pubType, reward, status:'scheduled', loc, dest, scheduleLabel: label, mode: pubMode, paused:false, timeAgo:'刚刚创建' });
+      /* 排期任务同样加密托管取件码，触发时按密文恢复，绝不静默丢弃 */
+      S.posted.unshift({ id, ts:Date.now(), title, cat:pubType, reward, status:'scheduled', loc, dest,
+        scheduleLabel: label, mode: pubMode, paused:false, ownerId:S.activeId,
+        hasSecret: !!secret, secretEnc: secret ? obf(secret) : null, timeAgo:'刚刚创建' });
       pushOrderEvent(id, 'schedule_created', label);
     }
     save();
@@ -1049,9 +1081,9 @@ function submitTask() {
 
 /* ================= 顺路拼单 ================= */
 function findAlongTask(t) {
-  if (t.mine) return null;
+  if (isMine(t)) return null;
   const zones = new Set([zoneOf(t.loc), zoneOf(t.dest)]);
-  const cand = S.tasks.find(x => x.id!==t.id && !x.mine && (zones.has(zoneOf(x.loc)) || zones.has(zoneOf(x.dest))));
+  const cand = S.tasks.find(x => x.id!==t.id && !isMine(x) && (zones.has(zoneOf(x.loc)) || zones.has(zoneOf(x.dest))));
   if (!cand) return null;
   const detour = 180 + (t.id + cand.id) % 5 * 70; /* 模拟绕行 180–460m，上限 500m */
   return { task: cand, detour };
@@ -1074,9 +1106,23 @@ function secretText(sec) { return (sec && sec.enc) ? unobf(sec.enc) : ''; }
 /* 接单前置校验：任何入口（单接 / 拼单）都必须先过这一关 */
 function acceptBlockReason(t) {
   if (!t) return '任务已被抢走';
-  if (t.mine) return '不能接自己发布的任务';
+  if (isMine(t)) return '不能接自己发布的任务';
   if (!S.verified) return '请先完成学籍认证才能接单';
-  if (creditScore() < 80) return '信用分低于 80，已被限制接单';
+  const credit = creditScore();
+  if (credit < 80) return '信用分低于 80，已被限制接单';
+  const limit = maxActiveOrders();
+  if (activeOrderCount() >= limit) {
+    return `信用分 ${credit}（80–90 档）最多同时接 1 单<br>完成当前订单后再接新单`;
+  }
+  return null;
+}
+/* 拼单额度校验：整组接单后的活动订单数不得超过档位上限 */
+function groupBlockReason(size) {
+  const limit = maxActiveOrders();
+  if (limit === Infinity) return null;
+  if (activeOrderCount() + size > limit) {
+    return `信用分 ${creditScore()}（80–90 档）最多同时接 ${limit} 单<br>当前已有 ${activeOrderCount()} 单在进行中`;
+  }
   return null;
 }
 /* 接单事务：唯一的落单入口，完整保留 seat / relay 副作用，groupId 为空表示单接 */
@@ -1086,10 +1132,12 @@ function takeTask(t, groupId) {
     : null;
   S.taken.unshift({
     id: t.id, ts: Date.now(), title: t.title, cat: t.cat, reward: t.reward,
-    loc: t.loc || '', dest: t.dest || '',
+    loc: t.loc || '', dest: t.dest || '', ownerId: t.ownerId || '',
     status: 'doing', timeAgo: groupId ? '拼单接单' : '刚刚接单',
     secretTaskId: t.hasSecret ? t.id : null, seat, groupId: groupId || null
   });
+  /* 履约率分母：接单即计入，超时/取消的订单会留在分母里 */
+  S.user.accepted = (S.user.accepted || 0) + 1;
   pushOrderEvent(t.id, 'order_accepted', groupId ? `顺路拼单组 #${groupId}` : '');
   if (t.relay) pushOrderEvent(t.id, 'broadcast_stopped', '已有跑手接单，停止后续广播');
 }
@@ -1115,6 +1163,8 @@ function acceptGroup(mainId, alongId) {
     closeSheet(); renderTasks(); return;
   }
   if (a.id === b.id) { toast('😅', '拼单失败：不能重复选择同一任务'); return; }
+  const groupReason = groupBlockReason(2);
+  if (groupReason) { toast('🚫', `拼单失败：${groupReason}`); closeSheet(); return; }
   const gid = ++S.seq;
   S.groups.push({ id: gid, taskIds: [a.id, b.id], ts: Date.now() });
   /* 事务：整组下架，任一已被接走则整组回滚 */
@@ -1141,6 +1191,7 @@ function deliverOrder(id) {
 }
 function confirmOrder(id) {
   const o = S.taken.find(x=>x.id===id); if (!o) return;
+  if (o.status === 'done' || o.status === 'expired') return; /* 幂等：状态与事件在同一分支写入 */
   /* 演示环境由跑手端代发布者确认；生产由发布者端发起，此处需服务端校验操作者身份 */
   pushOrderEvent(id, 'publisher_confirm_simulated', '演示：跑手端代发布者确认（生产由发布者端操作）');
   finishTakenOrder(o);
@@ -1153,7 +1204,7 @@ function finishTakenOrder(o) {
   const onTime = (Date.now() - o.ts) < 2*3600*1000;
   if (onTime) pushCredit('on_time_completed', '准时履约', 1);
   const u = S.user;
-  u.completed += 1; u.totalTaken += 1;
+  u.completed += 1;                       /* 分子：成功完成量（分母 accepted 在接单事务中已计） */
   u.income += o.reward; u.balance += o.reward;
   /* 足迹 RouteStamp */
   const from = o.loc || zoneOf(o.title), to = o.dest || '宿舍区';
@@ -1169,6 +1220,8 @@ function finishTakenOrder(o) {
 /* ---- 占座 ---- */
 function seatProof(id) {
   const o = S.taken.find(x=>x.id===id); if (!o || !o.seat) return;
+  if (o.seat.proofAt) return; /* 幂等：凭证只上传一次，不重复写事件 */
+  o.seat.proofAt = Date.now();
   pushOrderEvent(id, 'seat_proof', `座位 ${o.seat.seatCode} 凭证已上传（模拟）`);
   save(); renderOrders();
   toast('📷', `占座凭证已上传（模拟）<br>座位 ${o.seat.seatCode} 保留倒计时进行中`);
@@ -1270,8 +1323,10 @@ function publisherConfirm(id) {
 function triggerSchedule(id) {
   const o = S.posted.find(x=>x.id===id); if (!o || o.status!=='scheduled') return; /* 幂等 */
   S.posted = S.posted.filter(x=>x.id!==id);
-  S.tasks.unshift({ id:o.id, ts:Date.now(), cat:o.cat, title:o.title, desc:'由预约/周期模板自动生成（模拟）', reward:o.reward, loc:o.loc, dest:o.dest, time:'今天内', urgent:false, relay:null, hasSecret:false, dist:0.7, issuer:'我', credit:creditScore(), avatar:'我', mine:true });
-  S.posted.unshift({ id:o.id, ts:Date.now(), title:o.title, cat:o.cat, reward:o.reward, status:'open', loc:o.loc, dest:o.dest, timeAgo:'由排期自动生成' });
+  /* 取件码密文随排期一起恢复，创建时填了取件码的任务触发后仍有保险箱 */
+  if (o.secretEnc) S.secrets[id] = { enc: o.secretEnc, access:0, logs:[] };
+  S.tasks.unshift({ id:o.id, ts:Date.now(), cat:o.cat, title:o.title, desc:'由预约/周期模板自动生成（模拟）', reward:o.reward, loc:o.loc, dest:o.dest, time:'今天内', urgent:false, relay:null, hasSecret: !!o.hasSecret, dist:0.7, issuer:'我', credit:creditScore(), avatar:'我', ownerId:o.ownerId || S.activeId });
+  S.posted.unshift({ id:o.id, ts:Date.now(), title:o.title, cat:o.cat, reward:o.reward, status:'open', loc:o.loc, dest:o.dest, ownerId:o.ownerId || S.activeId, hasSecret: !!o.hasSecret, timeAgo:'由排期自动生成' });
   pushOrderEvent(id, 'schedule_fired', o.scheduleLabel || '');
   save(); renderTasks(); renderOrders();
   toast('⚡','排期已触发<br>任务已自动上架广场');
@@ -1362,6 +1417,20 @@ function closeSheet(){
 }
 /* 弹层内焦点锁定 + Escape 关闭 */
 document.addEventListener('keydown', e => {
+  /* 注册引导层：Escape = 放弃注册回到当前账号；Tab 锁在层内 */
+  const obOpen = !$('#obLayer').hidden;
+  if (obOpen) {
+    if (e.key === 'Escape') { e.preventDefault(); skipOnboard(); return; }
+    if (e.key === 'Tab') {
+      const items = [...$('#obLayer').querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled])')];
+      if (!items.length) return;
+      const first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      else if (!items.includes(document.activeElement)) { e.preventDefault(); first.focus(); }
+      return;
+    }
+  }
   const open = $('#sheet').classList.contains('show');
   if (!open) return;
   if (e.key === 'Escape') { e.preventDefault(); if (secretTimer) closeSecret(); else closeSheet(); return; }
@@ -1402,12 +1471,12 @@ function openTask(id) {
         <div class="a-meta">📍 ${esc(along.task.loc)} → ${esc(along.task.dest)} · 预计多绕约 ${along.detour} 米 · 顺路分 ${((t.reward+along.task.reward)/(t.dist+along.detour/1000)).toFixed(1)}</div>
       </div>
     </div>` : ''}`,
-    along && !t.mine
+    (along && !isMine(t))
       ? `<button class="btn-sm ghost" onclick="closeSheet()">再想想</button>
          <button class="btn-sm primary" style="flex:1.4" onclick="acceptGroup(${t.id},${along.task.id})">🔗 拼单同接 ¥${t.reward + along.task.reward}</button>
          <button class="btn-sm primary" style="background:var(--blue)" onclick="acceptTask(${t.id})">只接这单</button>`
       : `<button class="btn-sm ghost" onclick="closeSheet()">再想想</button>
-         <button class="btn-sm primary" onclick="acceptTask(${t.id})" ${t.mine?'disabled':''}>${t.mine ? '这是我发布的' : '立即接单'}</button>`);
+         <button class="btn-sm primary" onclick="acceptTask(${t.id})" ${isMine(t)?'disabled':''}>${isMine(t) ? '这是我发布的' : '立即接单'}</button>`);
 }
 
 /* ================= 信用明细 / 分享卡 ================= */
@@ -1433,7 +1502,7 @@ function openShareCard() {
     <div class="sheet-title" style="text-align:center">我的信用护照</div>
     <div class="share-card">
       <div class="sc-title">帮跑校园 · 信用护照（模拟生成）</div>
-      <div class="sc-name">杨同学 · 信用 ${credit}</div>
+      <div class="sc-name">${esc(S.name || '同学')} · 信用 ${credit}</div>
       <div class="sc-stats">
         <div class="sc-stat"><b>${u.completed}</b><span>完成订单</span></div>
         <div class="sc-stat"><b>${$('#statRate').textContent}</b><span>履约率</span></div>
@@ -1501,20 +1570,31 @@ const OB_STEPS = ['微信登录', '学籍认证', '开始使用'];
 const OB_SCHOOLS = ['香港理工大学', '深圳大学', '中山大学', '华南理工大学', '其他院校'];
 let obStep = 1;
 let obForm = {};
+let obLastFocus = null;
 
 function openOnboard() {
   closeSheet();
   obStep = 1;
   obForm = { name: '', school: S.school || '香港理工大学', college: '', studentId: '', cardUploaded: false, err: '' };
+  obLastFocus = document.activeElement;
   $('#obLayer').hidden = false;
+  $('#obLayer').setAttribute('aria-hidden', 'false');
   renderOnboard();
+  /* 焦点进入引导层首个可操作元素 */
+  const first = $('#obBtns button:not([disabled])') || $('#obBody input:not([disabled])');
+  if (first) { try { first.focus(); } catch(e){} }
 }
-function closeOnboard() { $('#obLayer').hidden = true; }
+function closeOnboard() {
+  $('#obLayer').hidden = true;
+  $('#obLayer').setAttribute('aria-hidden', 'true');
+  if (obLastFocus && obLastFocus.focus) { try { obLastFocus.focus(); } catch(e){} }
+  obLastFocus = null;
+}
 function skipOnboard() {
   closeOnboard();
   S.onboarded = true; save();
   renderMe();
-  toast('👋', '已进入演示成员 <b>杨同学</b><br>可在「我的 → 成员与账号」注册新成员');
+  toast('👋', `已回到 <b>${esc(S.name || '当前成员')}</b><br>可在「我的 → 成员与账号」注册新成员`);
 }
 function renderOnboard() {
   $('#obSteps').innerHTML = OB_STEPS.map((t, i) => {
@@ -1607,11 +1687,14 @@ function obReadForm() {
 function obSubmitVerify() {
   obReadForm();
   if (!obForm.name) { obForm.err = '请填写昵称'; renderOnboard(); return; }
-  if (!/^[A-Za-z0-9]{6,16}$/.test(obForm.studentId)) { obForm.err = '学号需为 6–16 位字母或数字'; renderOnboard(); return; }
+  /* 学号归一：去空格 + 统一大写后再校验/比对，避免 ABC123 与 abc123 注册成两个账号 */
+  obForm.studentId = (obForm.studentId || '').replace(/\s+/g, '').toUpperCase();
+  if (!/^[A-Z0-9]{6,16}$/.test(obForm.studentId)) { obForm.err = '学号需为 6–16 位字母或数字'; renderOnboard(); return; }
   if (!obForm.cardUploaded) { obForm.err = '请上传校园卡完成核验'; renderOnboard(); return; }
   const btn = $('#obSubmitBtn'); btn.disabled = true; btn.textContent = '学籍核验中…（模拟）';
   setTimeout(() => {
-    if (S.accounts.some(a => a.studentId && a.studentId === obForm.studentId)) {
+    const sid = String(obForm.studentId || '').toUpperCase();
+    if (sid && S.accounts.some(a => String(a.studentId || '').toUpperCase() === sid)) {
       obForm.err = '该学号已完成认证，请直接切换该账号'; renderOnboard(); return;
     }
     obForm.err = '';
