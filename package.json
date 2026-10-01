@@ -1,0 +1,15 @@
+{
+  "name": "campus-errand-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "帮跑校园 · 校园跑腿互助平台：高保真可交互原型 + PRD（静态站点，部署于 GitHub Pages）",
+  "scripts": {
+    "test": "node tests/smoke.test.js"
+  },
+  "devDependencies": {
+    "jsdom": "^30.1.1"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

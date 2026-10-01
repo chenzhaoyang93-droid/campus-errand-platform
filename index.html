@@ -145,6 +145,7 @@
   .o-status.scheduled { color:var(--purple); }
   .order .o-title { font-size:14.5px; font-weight:600; word-break:break-all; }
   .order .o-meta { font-size:12px; color:var(--text-2); margin-top:6px; }
+  .order .o-note { font-size:11px; color:var(--text-3); background:#fafbfc; border-radius:8px; padding:7px 9px; margin-top:8px; line-height:1.6; }
   .order .o-flow { display:flex; align-items:center; gap:4px; margin-top:10px; font-size:10px; color:var(--text-3); flex-wrap:wrap; }
   .o-flow .step { padding:3px 7px; border-radius:8px; background:#f0f1f3; }
   .o-flow .step.cur { background:#e9f9f0; color:var(--green); font-weight:600; }
@@ -600,9 +601,9 @@ function seedState() {
       { id:5, ts:now-70*60e3, cat:'other', title:'帮搬宿舍行李下楼（两件）', desc:'周末搬宿舍，两个行李箱从 5 楼搬到楼下，有电梯但电梯口到楼下有一段台阶。', reward:15, loc:'紫荆公寓', dest:'楼下', time:'今天内', urgent:false, relay:null, hasSecret:false, dist:0.3, issuer:'周同学', credit:121, avatar:'周', mine:false },
       { id:6, ts:now-100*60e3, cat:'buy', title:'校门口奶茶店带两杯杨枝甘露', desc:'都要正常冰三分糖，到店自取报手机尾号即可，钱我转你。', reward:4, loc:'校门口', dest:'紫荆公寓 5 号楼', time:'今天内', urgent:false, relay:null, hasSecret:false, dist:1.5, issuer:'吴同学', credit:88, avatar:'吴', mine:false },
     ],
-    secrets: { /* SecurePayload：密文存储（演示为明文+结构预留），不写日志/localStorage 展示值 */
-      1: { code:'6-2-3018', access:0, logs:[] },
-      4: { code:'SF-8890', access:0, logs:[] },
+    secrets: { /* SecurePayload：只存密文 enc，明文永不落盘 */
+      1: { enc: obf('6-2-3018'), access:0, logs:[] },
+      4: { enc: obf('SF-8890'), access:0, logs:[] },
     },
     groups: [],  /* OrderGroup：顺路拼单组 */
     ui: { cat:'all', sort:'rec', orderTab:'taken', noticeClosed:false },
@@ -631,6 +632,11 @@ function migrate() {
   }
   if (typeof S.onboarded !== 'boolean') S.onboarded = true; /* 老用户不打断 */
   if (!S.accounts.some(a=>a.id===S.activeId)) S.activeId = S.accounts[0].id;
+  /* 老版本取件码为明文存储，迁移为密文 */
+  Object.keys(S.secrets || {}).forEach(k => {
+    const s = S.secrets[k];
+    if (s && typeof s.code === 'string' && !s.enc) { s.enc = obf(s.code); delete s.code; }
+  });
 }
 function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch(e){} }
 load();
@@ -749,7 +755,8 @@ function renderOrders() {
       } else if (o.status==='delivering') {
         btns = `<button class="btn-sm primary" onclick="deliverOrder(${o.id})">📷 上传凭证并送达</button>`;
       } else if (o.status==='wait_confirm') {
-        btns = `<button class="btn-sm primary" onclick="confirmOrder(${o.id})">发布者确认完成</button>`;
+        btns = `<button class="btn-sm primary" onclick="confirmOrder(${o.id})">（演示）代发布者确认</button>`;
+        extra += `<div class="o-note">线上由发布者端确认后结算；单机演示无对端账号，此按钮代为推进并已在事件账本标注「模拟确认」。</div>`;
       }
       if (o.secretTaskId && ['doing','delivering'].includes(o.status)) {
         const sec = S.secrets[o.secretTaskId];
@@ -775,7 +782,7 @@ function renderOrders() {
         btns = `<button class="btn-sm primary" onclick="triggerSchedule(${o.id})">（演示）立即生成任务</button><button class="btn-sm ghost" onclick="toggleSchedule(${o.id})">${o.paused?'恢复':'暂停'}</button>`;
       }
     }
-    const meta = o.status==='wait_confirm' ? '凭证已上传（模拟）· 等待发布者确认'
+    const meta = o.status==='wait_confirm' ? (isTaken ? '凭证已上传（模拟）· 等待发布者确认' : '跑手已送达 · 请确认后结算赏金')
       : o.status==='scheduled' ? `⏰ ${esc(o.scheduleLabel||'')} · ${o.paused?'已暂停':'生效中'}`
       : (o.timeAgo || '');
     return `<div class="order">
@@ -945,7 +952,7 @@ function saveDraft() {
         type: pubType, mode: pubMode,
         title: $('#fTitle').value, dest: $('#fDest').value,
         desc: $('#fDesc').value, reward: $('#fReward').value,
-        secret: $('#fSecret').value,
+        /* 取件码不入草稿：草稿明文落盘，与「加密托管、仅接单者可见」冲突 */
         loc: ($('.loc-chip.on')||{}).textContent || '菜鸟驿站',
         deadline: $('#fDeadline').value
       }));
@@ -963,9 +970,17 @@ function loadDraft() {
       $$('.type-item').forEach(x=>{ const on = x.dataset.type===pubType; x.classList.toggle('on', on); x.setAttribute('aria-checked', on); });
       $('#fTitle').value = d.title||''; $('#fDest').value = d.dest||'';
       $('#fDesc').value = d.desc||''; $('#fReward').value = d.reward||'';
-      $('#fSecret').value = d.secret||'';
+      /* 取件码不恢复（草稿从未保存过它），保持空 */
       $$('.loc-chip').forEach(x=>{ const on = x.textContent===d.loc; x.classList.toggle('on', on); x.setAttribute('aria-checked', on); });
       if (d.deadline) $('#fDeadline').value = d.deadline;
+      /* 恢复发布方式：立即 / 预约 / 每周重复 */
+      if (d.mode && d.mode !== pubMode) {
+        pubMode = d.mode;
+        $$('.mode-btn').forEach(x=>{ const on = x.dataset.mode===pubMode; x.classList.toggle('on', on); x.setAttribute('aria-checked', on); });
+        const row = $('#scheduleRow');
+        row.style.display = 'block';
+        $('#fSchedule').innerHTML = SCHEDULE_OPTS[pubMode].map(o=>`<option>${o}</option>`).join('');
+      }
       $('#draftTip').hidden = false;
     }
   } catch(e){}
@@ -1003,7 +1018,7 @@ function submitTask() {
         relay, hasSecret: !!secret,
         dist: Math.round((0.2 + Math.random()*1.3)*10)/10,
         issuer:'我', credit:creditScore(), avatar:'我', mine:true });
-      if (secret) S.secrets[id] = { code: secret, access:0, logs:[] };
+      if (secret) S.secrets[id] = { enc: obf(secret), access:0, logs:[] };
       S.posted.unshift({ id, ts:Date.now(), title, cat:pubType, reward, status:'open', loc, dest, relay, timeAgo:'刚刚发布' });
       pushOrderEvent(id, 'task_published', relay ? '紧急接力任务发布' : '任务发布');
     } else {
@@ -1041,53 +1056,97 @@ function findAlongTask(t) {
   const detour = 180 + (t.id + cand.id) % 5 * 70; /* 模拟绕行 180–460m，上限 500m */
   return { task: cand, detour };
 }
-function acceptGroup(mainId, alongId) {
-  if (!S.verified) { toast('🪪','请先完成学籍认证才能接单'); return; }
-  const a = S.tasks.find(x=>x.id===mainId), b = S.tasks.find(x=>x.id===alongId);
-  if (!a || !b) { toast('😅','有任务刚被抢走，拼单失败'); closeSheet(); renderTasks(); return; } /* 事务：任一被接则整组失败 */
-  const gid = ++S.seq;
-  S.groups.push({ id:gid, taskIds:[a.id, b.id], ts:Date.now() });
-  S.tasks = S.tasks.filter(x=>x.id!==a.id && x.id!==b.id);
-  const mk = (t)=>({ id:t.id, ts:Date.now(), title:t.title, cat:t.cat, reward:t.reward, status:'doing', groupId:gid, timeAgo:'拼单接单', secretTaskId: t.hasSecret ? t.id : null, seat: null });
-  S.taken.unshift(mk(a), mk(b));
-  [a,b].forEach(t=>pushOrderEvent(t.id, 'order_accepted', `顺路拼单组 #${gid}`));
-  save(); renderTasks(); closeSheet();
-  toast('🔗', `拼单成功！<br>两单合计 ¥${a.reward + b.reward}`);
-  setTimeout(()=>switchTab('orders'), 1000);
+/* ================= 取件码保险箱：密文落盘 =================
+ * 演示实现：字符级混淆（XOR + hex），只保证 localStorage 里不出现明文。
+ * 生产实现：AES-GCM 加密 + KMS 托管密钥，密文服务端存储，前端仅持有一次性解密令牌。
+ */
+function obf(s) {
+  return String(s).split('').map(c => (c.charCodeAt(0) ^ 0x5a).toString(16).padStart(4, '0')).join('');
 }
+function unobf(s) {
+  try {
+    return String(s).match(/.{4}/g).map(h => String.fromCharCode(parseInt(h, 16) ^ 0x5a)).join('');
+  } catch (e) { return ''; }
+}
+function secretText(sec) { return (sec && sec.enc) ? unobf(sec.enc) : ''; }
 
 /* ================= 接单 → 履约状态机 ================= */
-function acceptTask(id) {
-  const t = S.tasks.find(x=>x.id===id); if (!t) return;
-  if (t.mine) { toast('😅','不能接自己发布的任务'); return; }
-  if (!S.verified) { toast('🪪','请先完成学籍认证才能接单<br>「我的 → 学籍认证」'); return; }
-  if (creditScore() < 80) { toast('🚫','信用分低于 80，已被限制接单'); return; }
-  /* 条件更新（生产：UPDATE ... WHERE runner_id IS NULL） */
-  S.tasks = S.tasks.filter(x=>x.id!==id);
-  const seat = t.cat==='seat' ? { holdUntil: Date.now()+SEAT_HOLD_MS, ext:0, status:'active', seatCode:'4F-A'+String(10 + id%40), notified:false } : null;
-  S.taken.unshift({ id:t.id, ts:Date.now(), title:t.title, cat:t.cat, reward:t.reward, status:'doing', timeAgo:'刚刚接单', secretTaskId: t.hasSecret ? t.id : null, seat, groupId:null });
-  pushOrderEvent(t.id, 'order_accepted');
+/* 接单前置校验：任何入口（单接 / 拼单）都必须先过这一关 */
+function acceptBlockReason(t) {
+  if (!t) return '任务已被抢走';
+  if (t.mine) return '不能接自己发布的任务';
+  if (!S.verified) return '请先完成学籍认证才能接单';
+  if (creditScore() < 80) return '信用分低于 80，已被限制接单';
+  return null;
+}
+/* 接单事务：唯一的落单入口，完整保留 seat / relay 副作用，groupId 为空表示单接 */
+function takeTask(t, groupId) {
+  const seat = t.cat === 'seat'
+    ? { holdUntil: Date.now() + SEAT_HOLD_MS, ext: 0, status: 'active', seatCode: '4F-A' + String(10 + t.id % 40), notified: false }
+    : null;
+  S.taken.unshift({
+    id: t.id, ts: Date.now(), title: t.title, cat: t.cat, reward: t.reward,
+    loc: t.loc || '', dest: t.dest || '',
+    status: 'doing', timeAgo: groupId ? '拼单接单' : '刚刚接单',
+    secretTaskId: t.hasSecret ? t.id : null, seat, groupId: groupId || null
+  });
+  pushOrderEvent(t.id, 'order_accepted', groupId ? `顺路拼单组 #${groupId}` : '');
   if (t.relay) pushOrderEvent(t.id, 'broadcast_stopped', '已有跑手接单，停止后续广播');
+}
+
+function acceptTask(id) {
+  const t = S.tasks.find(x => x.id === id);
+  const reason = acceptBlockReason(t);
+  if (reason) { toast(reason.includes('认证') ? '🪪' : '🚫', reason); return; }
+  /* 条件更新（生产：UPDATE ... WHERE runner_id IS NULL） */
+  S.tasks = S.tasks.filter(x => x.id !== id);
+  takeTask(t, null);
   save(); renderTasks(); closeSheet();
-  toast('✅', t.cat==='seat' ? '接单成功！<br>占座倒计时已启动' : '接单成功！<br>完成后请拍照留证');
-  setTimeout(()=>switchTab('orders'), 900);
+  toast('✅', t.cat === 'seat' ? '接单成功！<br>占座倒计时已启动' : '接单成功！<br>完成后请拍照留证');
+  setTimeout(() => switchTab('orders'), 900);
+}
+
+/* 拼单：先对两单做完整预校验，任一不通过则整组失败，绝不部分成交 */
+function acceptGroup(mainId, alongId) {
+  const a = S.tasks.find(x => x.id === mainId), b = S.tasks.find(x => x.id === alongId);
+  const reasonA = acceptBlockReason(a), reasonB = acceptBlockReason(b);
+  if (reasonA || reasonB) {
+    toast('🚫', `拼单失败：${esc(reasonA || reasonB)}`);
+    closeSheet(); renderTasks(); return;
+  }
+  if (a.id === b.id) { toast('😅', '拼单失败：不能重复选择同一任务'); return; }
+  const gid = ++S.seq;
+  S.groups.push({ id: gid, taskIds: [a.id, b.id], ts: Date.now() });
+  /* 事务：整组下架，任一已被接走则整组回滚 */
+  S.tasks = S.tasks.filter(x => x.id !== a.id && x.id !== b.id);
+  takeTask(a, gid);
+  takeTask(b, gid);
+  save(); renderTasks(); closeSheet();
+  const hasSeat = a.cat === 'seat' || b.cat === 'seat';
+  toast('🔗', `拼单成功！<br>两单合计 ¥${a.reward + b.reward}${hasSeat ? '<br>占座倒计时已启动' : ''}`);
+  setTimeout(() => switchTab('orders'), 1000);
 }
 function startDeliver(id) {
   const o = S.taken.find(x=>x.id===id); if (!o) return;
+  if (o.status !== 'doing') return; /* 幂等：已出发不可重复触发 */
   o.status = 'delivering'; pushOrderEvent(id, 'delivering');
   save(); renderOrders();
 }
 function deliverOrder(id) {
   const o = S.taken.find(x=>x.id===id); if (!o) return;
+  if (['wait_confirm','done','expired'].includes(o.status)) return; /* 幂等：已送达不可重复上传 */
   o.status = 'wait_confirm'; pushOrderEvent(id, 'proof_uploaded', '送达凭证已上传（模拟）');
   save(); renderOrders();
   toast('📷','送达凭证已上传（模拟）<br>等待发布者确认');
 }
 function confirmOrder(id) {
   const o = S.taken.find(x=>x.id===id); if (!o) return;
+  /* 演示环境由跑手端代发布者确认；生产由发布者端发起，此处需服务端校验操作者身份 */
+  pushOrderEvent(id, 'publisher_confirm_simulated', '演示：跑手端代发布者确认（生产由发布者端操作）');
   finishTakenOrder(o);
 }
 function finishTakenOrder(o) {
+  if (o.status === 'done' || o.status === 'expired') return; /* 幂等：已完成不重复结算 */
   o.status = 'done'; o.doneAt = Date.now();
   pushOrderEvent(o.id, 'order_done');
   pushCredit('order_completed', `完成订单「${String(o.title).slice(0,12)}…」`, 2);
@@ -1116,6 +1175,7 @@ function seatProof(id) {
 }
 function confirmArrive(id) {
   const o = S.taken.find(x=>x.id===id); if (!o || !o.seat) return;
+  if (o.seat.status !== 'active') return; /* 幂等：已确认/已超时不重复结算 */
   o.seat.status = 'confirmed';
   pushOrderEvent(id, 'seat_confirmed', '发布者确认到达');
   finishTakenOrder(o);
@@ -1153,13 +1213,14 @@ function viewSecret(orderId) {
   sec.access += 1;
   sec.logs.push({ t:Date.now() }); /* SecretAccessLog */
   save(); renderOrders();
+  const code = secretText(sec);
   let remain = 30;
   openSheet(`
     <div class="sheet-title" style="text-align:center">🔐 取件码保险箱</div>
     <div class="secret-display">
-      <div class="s-code">${esc(sec.code)}</div>
+      <div class="s-code" id="secretCode">${esc(code)}</div>
       <div class="s-cd" id="secretCd">剩余 ${remain} 秒</div>
-      <div class="s-note">已记录本次访问（第 ${sec.access} 次）· 请勿截图外传<br>生产环境：AES-GCM 加密存储 + KMS 密钥托管</div>
+      <div class="s-note">已记录本次访问（第 ${sec.access} 次）· 请勿截图外传<br>明文不落盘、不缓存，30 秒后自动关闭<br>生产环境：AES-GCM 加密存储 + KMS 密钥托管</div>
     </div>`,
     `<button class="btn-sm ghost" onclick="closeSecret()">立即关闭</button>`);
   clearInterval(secretTimer);
@@ -1171,19 +1232,26 @@ function viewSecret(orderId) {
     el.textContent = `剩余 ${remain} 秒`;
   }, 1000);
 }
-function closeSecret(){ clearInterval(secretTimer); closeSheet(); }
+function closeSecret(){
+  clearInterval(secretTimer);
+  const el = $('#secretCode'); if (el) el.textContent = '••••'; /* 关闭即抹掉明文 */
+  closeSheet();
+}
 
 /* ---- 发布者视角（模拟对端） ---- */
 function simulateRunner(id) {
   const o = S.posted.find(x=>x.id===id); if (!o) return;
+  if (o.status !== 'open') return; /* 幂等：非待接单不重复模拟 */
   o.status = 'doing'; o.timeAgo = '林同学（跑手）已接单';
   if (o.relay) pushOrderEvent(id, 'broadcast_stopped', '跑手已接单，停止广播');
   pushOrderEvent(id, 'order_accepted', '林同学（模拟跑手）接单');
-  save(); renderOrders();
+  S.tasks = S.tasks.filter(t => t.id !== id); /* 任务同步下架，不再留在广场 */
+  save(); renderOrders(); renderTasks();
   toast('🏃','林同学 已接单（模拟）<br>接力广播已停止');
 }
 function simulateRunnerDeliver(id) {
   const o = S.posted.find(x=>x.id===id); if (!o) return;
+  if (o.status !== 'doing' && o.status !== 'delivering') return; /* 幂等 */
   o.status = 'wait_confirm';
   pushOrderEvent(id, 'proof_uploaded', '跑手已上传送达凭证（模拟）');
   save(); renderOrders();
@@ -1191,6 +1259,7 @@ function simulateRunnerDeliver(id) {
 }
 function publisherConfirm(id) {
   const o = S.posted.find(x=>x.id===id); if (!o) return;
+  if (o.status === 'done') return; /* 幂等：已结算不重复结算 */
   o.status = 'done';
   pushOrderEvent(id, 'order_done', '发布者确认，托管赏金已结算（模拟）');
   save(); renderOrders();
@@ -1199,7 +1268,7 @@ function publisherConfirm(id) {
 
 /* ---- 预约 / 周期 ---- */
 function triggerSchedule(id) {
-  const o = S.posted.find(x=>x.id===id); if (!o) return;
+  const o = S.posted.find(x=>x.id===id); if (!o || o.status!=='scheduled') return; /* 幂等 */
   S.posted = S.posted.filter(x=>x.id!==id);
   S.tasks.unshift({ id:o.id, ts:Date.now(), cat:o.cat, title:o.title, desc:'由预约/周期模板自动生成（模拟）', reward:o.reward, loc:o.loc, dest:o.dest, time:'今天内', urgent:false, relay:null, hasSecret:false, dist:0.7, issuer:'我', credit:creditScore(), avatar:'我', mine:true });
   S.posted.unshift({ id:o.id, ts:Date.now(), title:o.title, cat:o.cat, reward:o.reward, status:'open', loc:o.loc, dest:o.dest, timeAgo:'由排期自动生成' });
@@ -1223,6 +1292,7 @@ function askCancelPosted(id) {
 }
 function doCancelPosted(id) {
   const o = S.posted.find(x=>x.id===id); if (!o) return;
+  if (o.status !== 'open' && o.status !== 'scheduled') return; /* 幂等：已取消/已成交不再退款 */
   o.status = 'cancelled';
   S.tasks = S.tasks.filter(t=>t.id!==id);
   pushOrderEvent(id, 'task_cancelled');
@@ -1257,27 +1327,52 @@ function openReviewTags(o) {
 }
 function submitReviewTags() {
   const o = S.taken.find(x=>x.id===window.__reviewOrderId);
-  const sel = [...window.__reviewSel].map(i=>REVIEW_TAGS[i]);
+  if (!o || o.reviewed) { closeSheet(); return; } /* 幂等：一单只评价一次 */
+  const sel = [...window.__reviewSel].map(i=>REVIEW_TAGS[i]).filter(Boolean);
+  if (!sel.length) { toast('🙈','请先选择 1–3 个标签'); return; }
   let total = 0;
   sel.forEach(x=>{ total += x.d; pushCredit('positive_review', `收到「${x.t}」评价`, x.d); });
-  save(); renderMe(); closeSheet();
-  toast('🎉', `评价成功！<br>赏金 ¥${o ? o.reward : ''} 已到账（模拟），信用 +${total}`);
+  o.reviewed = true; o.reviewTags = sel.map(x=>x.t);
+  save(); renderMe(); renderOrders(); closeSheet();
+  toast('🎉', `评价成功！<br>赏金 ¥${o.reward} 已到账（模拟），信用 +${total}`);
 }
 
 /* ================= 弹层 ================= */
+let lastFocus = null;
 function openSheet(bodyHtml, actionsHtml) {
+  lastFocus = document.activeElement;
   $('#sheetBody').innerHTML = bodyHtml;
   $('#sheetActions').innerHTML = actionsHtml;
   $('#mask').classList.add('show');
   $('#sheet').classList.add('show');
   $('#sheet').setAttribute('aria-hidden','false');
+  /* 焦点进入弹层，首个可聚焦元素 */
+  const first = $('#sheetActions button:not([disabled])') || $('#sheetBody button:not([disabled])') || $('#sheetBody input') || $('#sheet');
+  if (first) { try { first.focus(); } catch(e){} }
 }
 function closeSheet(){
   clearInterval(secretTimer);
   $('#mask').classList.remove('show');
   $('#sheet').classList.remove('show');
   $('#sheet').setAttribute('aria-hidden','true');
+  const el = $('#secretCode'); if (el) el.textContent = '••••';
+  /* 焦点回到触发弹层的元素 */
+  if (lastFocus && lastFocus.focus) { try { lastFocus.focus(); } catch(e){} }
+  lastFocus = null;
 }
+/* 弹层内焦点锁定 + Escape 关闭 */
+document.addEventListener('keydown', e => {
+  const open = $('#sheet').classList.contains('show');
+  if (!open) return;
+  if (e.key === 'Escape') { e.preventDefault(); if (secretTimer) closeSecret(); else closeSheet(); return; }
+  if (e.key !== 'Tab') return;
+  const items = [...$('#sheetBody').querySelectorAll('button,input,textarea,select,[tabindex]:not([tabindex="-1"])'),
+                 ...$('#sheetActions').querySelectorAll('button:not([disabled])')].filter(el => !el.disabled);
+  if (!items.length) return;
+  const first = items[0], last = items[items.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
 
 function openTask(id) {
   const t = S.tasks.find(x=>x.id===id); if (!t) return;

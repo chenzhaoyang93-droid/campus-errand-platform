@@ -12,12 +12,13 @@ const html = fs.readFileSync(require('path').join(__dirname,'..','index.html'),'
 
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let pass=0, fail=0;
+const pageErrors = [];   /* 页内未捕获异常计入失败 */
 function check(name, cond){ if(cond){pass++;console.log('PASS',name)} else {fail++;console.log('FAIL',name)} }
 
 function newDom(savedRaw) {
   const vc = new VirtualConsole();
-  vc.on('jsdomError', e => console.log('PAGE ERROR:', e.detail && e.detail.message, e.detail && e.detail.stack && e.detail.stack.split('\n')[1]));
-  vc.on('error', (...a) => console.log('PAGE console.error:', ...a));
+  vc.on('jsdomError', e => pageErrors.push('jsdomError: ' + (e.detail && e.detail.message || e)));
+  vc.on('error', (...a) => pageErrors.push('console.error: ' + a.join(' ')));
   return new JSDOM(html, { runScripts:'dangerously', url:'http://localhost/', pretendToBeVisual:true, virtualConsole: vc,
     beforeParse(win){ if (savedRaw) win.localStorage.setItem('bangpao_campus_v3', savedRaw); } });
 }
@@ -259,6 +260,99 @@ function newDom(savedRaw) {
   check('一人一号: 重复学号被拦截', w2.eval('obForm').err.includes('已完成认证'));
   check('一人一号: 未新增账号', w2.eval('S').accounts.length===3);
   w2.closeOnboard();
+
+  // === 19. 拼单复用接单校验（信用 / 本人任务 / 占座 / 接力） ===
+  const pushTask = (id, extra) => w2.eval(`S.tasks.push(Object.assign({id:${id},ts:Date.now(),cat:"express",title:"拼单任务${id}",desc:"",reward:5,loc:"一食堂",dest:"图书馆",time:"今天内",urgent:false,relay:null,hasSecret:false,dist:0.5,issuer:"张同学",credit:100,avatar:"张",mine:false}, ${extra||'{}'}));`);
+  pushTask(9001); pushTask(9002);
+  w2.acceptGroup(9001, 9002);
+  const gA = w2.eval('S').taken.find(o=>o.id===9001), gB = w2.eval('S').taken.find(o=>o.id===9002);
+  check('拼单: 信用充足时成交', !!gA && !!gB && !!gA.groupId && gA.groupId===gB.groupId);
+  check('拼单: 两单同组下架', !w2.eval('S').tasks.some(t=>t.id===9001||t.id===9002));
+
+  pushTask(9003); pushTask(9004);
+  w2.eval(`pushCredit('test_penalty','测试扣分',-40)`);
+  const takenBeforeLow = w2.eval('S').taken.length;
+  w2.acceptGroup(9003, 9004);
+  check('拼单: 信用不足 80 被拦截', w2.eval('S').taken.length===takenBeforeLow);
+  check('拼单: 拦截后任务仍在广场（整组回滚）', w2.eval('S').tasks.some(t=>t.id===9003) && w2.eval('S').tasks.some(t=>t.id===9004));
+  w2.eval(`pushCredit('test_restore','测试恢复',40)`);
+
+  pushTask(9005, `{cat:"seat",dest:"4F 自习区"}`); pushTask(9006, `{dest:"教学楼"}`);
+  w2.acceptGroup(9005, 9006);
+  const seatGroupOrder = w2.eval('S').taken.find(o=>o.id===9005);
+  check('拼单: 占座单同样启动倒计时', !!seatGroupOrder.seat && seatGroupOrder.seat.holdUntil > Date.now());
+  check('拼单: 占座状态为 active', seatGroupOrder.seat.status==='active');
+
+  pushTask(9007, `{relay:{startedAt:Date.now()}}`); pushTask(9008, `{dest:"教学楼"}`);
+  w2.acceptGroup(9007, 9008);
+  check('拼单: 接力单写入停止广播事件', w2.eval('S').orderEvents.some(e=>e.orderId===9007 && e.type==='broadcast_stopped'));
+
+  pushTask(9009, `{mine:true}`); pushTask(9010, `{dest:"教学楼"}`);
+  const takenBefore2 = w2.eval('S').taken.length;
+  w2.acceptGroup(9009, 9010);
+  check('拼单: 含本人任务整组失败', w2.eval('S').taken.length===takenBefore2);
+  check('拼单: 失败后另一单未被吃掉', w2.eval('S').tasks.some(t=>t.id===9010));
+
+  // === 20. 完成 / 评价幂等 ===
+  const incomeBefore = w2.eval('S').user.income;
+  const reward9001 = w2.eval('S').taken.find(o=>o.id===9001).reward;
+  w2.confirmOrder(9001);
+  const creditAfter1 = w2.eval('creditScore()');
+  w2.confirmOrder(9001); w2.confirmOrder(9001);
+  check('幂等: 重复确认信用分只涨一次', w2.eval('creditScore()')===creditAfter1);
+  check('幂等: 收入只结算一次', w2.eval('S').user.income===incomeBefore+reward9001);
+  check('幂等: 完成数只加一次', w2.eval('S').taken.find(o=>o.id===9001).status==='done');
+  d2.querySelector('#reviewChips .tag-chip[data-i="4"]').click();
+  w2.submitReviewTags();
+  const creditAfterReview = w2.eval('creditScore()');
+  w2.openReviewTags(w2.eval('S').taken.find(o=>o.id===9001));
+  d2.querySelector('#reviewChips .tag-chip[data-i="0"]').click();
+  w2.submitReviewTags();
+  check('幂等: 已评价订单不可重复加分', w2.eval('creditScore()')===creditAfterReview);
+  const pDone = w2.eval('S').posted.find(p=>p.status==='wait_confirm');
+  if (pDone) {
+    const evBefore = w2.eval('S').orderEvents.length;
+    w2.publisherConfirm(pDone.id); w2.publisherConfirm(pDone.id);
+    check('幂等: 发布者重复确认不重复写事件', w2.eval('S').orderEvents.length===evBefore+1);
+  }
+
+  // === 21. 取件码不明文落盘 ===
+  w2.goPublish('express');
+  d2.getElementById('fTitle').value='保险箱测试任务';
+  d2.getElementById('fReward').value='5';
+  d2.getElementById('fSecret').value='SECRET-1234';
+  w2.eval('saveDraft()');
+  await sleep(600);
+  const draftRaw = w2.localStorage.getItem('bangpao_draft_v3');
+  check('保险箱: 草稿中不出现明文取件码', !draftRaw.includes('SECRET-1234'));
+  w2.submitTask();
+  await sleep(1300);
+  const stateRaw = w2.localStorage.getItem('bangpao_campus_v3');
+  check('保险箱: 全量状态中不出现明文取件码', !stateRaw.includes('SECRET-1234'));
+  const secTaskId = w2.eval('S').posted.find(p=>p.title==='保险箱测试任务').id;
+  check('保险箱: 密文可正确还原', w2.eval(`secretText(S.secrets[${secTaskId}])`)==='SECRET-1234');
+  check('保险箱: 存储字段为密文 enc', !!w2.eval('S').secrets[secTaskId].enc && w2.eval('S').secrets[secTaskId].code===undefined);
+
+  // === 22. 模拟跑手接单后任务下架 ===
+  const openPosted = w2.eval('S').posted.find(p=>p.id===secTaskId);
+  w2.simulateRunner(openPosted.id);
+  check('模拟跑手: 接单后任务从广场下架', !w2.eval('S').tasks.some(t=>t.id===secTaskId));
+  check('模拟跑手: 订单状态推进', w2.eval('S').posted.find(p=>p.id===secTaskId).status==='doing');
+
+  // === 23. 弹层键盘可达（Escape 关闭） ===
+  w2.openSheet('<div class="sheet-title">键盘测试</div>', '<button class="btn-sm primary">确认</button>');
+  check('弹层: 打开时 aria-hidden=false', d2.getElementById('sheet').getAttribute('aria-hidden')==='false');
+  d2.dispatchEvent(new w2.KeyboardEvent('keydown', { key:'Escape', bubbles:true }));
+  check('弹层: Escape 可关闭', d2.getElementById('sheet').getAttribute('aria-hidden')==='true');
+
+  // === 24. 草稿恢复发布方式 ===
+  w2.localStorage.setItem('bangpao_draft_v3', JSON.stringify({ type:'buy', mode:'weekly', title:'每周带咖啡', dest:'教学楼', desc:'', reward:'4', loc:'一食堂', deadline:'今天内' }));
+  w2.loadDraft();
+  check('草稿: 恢复发布方式为每周重复', d2.querySelector('.mode-btn[data-mode="weekly"]').classList.contains('on'));
+  check('草稿: 排期行同步显示', d2.getElementById('scheduleRow').style.display==='block');
+
+  check('运行时: 全程无未捕获异常', pageErrors.length===0);
+  if (pageErrors.length) console.log(pageErrors.slice(0,6));
 
   console.log(`\n==== ${pass} PASS / ${fail} FAIL ====`);
   process.exit(fail?1:0);
