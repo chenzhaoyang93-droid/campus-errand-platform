@@ -256,6 +256,31 @@
   </ul>
 </section>
 
+<!-- 11 -->
+<section>
+  <h2><span class="no">11</span>特色功能设计（事件驱动架构）</h2>
+  <p>所有功能围绕同一套底层对象实现:<b>User / Task / Order / OrderEvent / CreditEvent / SecurePayload / Poi</b>。订单状态机统一为 <b>OPEN → ACCEPTED → PICKING → DELIVERING → WAIT_CONFIRM → DONE</b>,异常态 CANCELLED / EXPIRED / DISPUTED。所有状态变化写 OrderEvent,信用变化写 CreditEvent,<span class="hl">信用分 = 100 + Σ(CreditEvent.delta)</span>,统计全部由事件聚合而非手工改数。</p>
+  <table>
+    <tr><th>功能</th><th>核心规则</th><th>Demo 状态</th></tr>
+    <tr><td><b>🔗 顺路拼单</b></td><td>基于校园 POI 分区匹配同区域任务,顺路分 = 总赏金 ÷（基础路程+绕行）,绕行 ≤500m;整组事务接单,任一被抢则整组失败,防超卖</td><td>✅ 可体验（详情页顺路推荐 + 拼单组接单）</td></tr>
+    <tr><td><b>⏰ 占座倒计时</b></td><td>SeatHold 保留上限 40 分钟,服务端 hold_until 为准;上传占座凭证、可延长一次 10 分钟（写入信用记录）、超时自动释放并写 OrderEvent</td><td>✅ 可体验（真实倒计时 + 延长 + 自动释放）</td></tr>
+    <tr><td><b>🔐 取件码保险箱</b></td><td>SecurePayload 加密托管（AES-GCM + KMS 预留）,仅接单者在履约窗口内可解锁,单次展示 30 秒,访问上限 5 次,每次查看写 SecretAccessLog</td><td>✅ 可体验（30 秒倒计时 + 访问日志）</td></tr>
+    <tr><td><b>📢 紧急接力广播</b></td><td>按「同楼栋 → 相邻楼栋 → 全校」逐波扩散,有人接单立即停止后续广播;接单用条件更新防抢单冲突;只广播到楼栋级,不暴露精确宿舍号</td><td>✅ 可体验（演示加速 45s/波 + 模拟接单停播）</td></tr>
+    <tr><td><b>🕐 预约与周期跑腿</b></td><td>TaskTemplate + ScheduleRun,到点由 Worker 生成真实订单而非预建大量订单;支持暂停 / 跳过 / 修改模板</td><td>✅ 可体验（排期创建 + 手动触发 + 暂停）</td></tr>
+    <tr><td><b>🛂 信用护照与足迹</b></td><td>本月单量、准时率、最长履约路线（楼栋级,不暴露精确位置）、事件解锁徽章,可生成分享卡</td><td>✅ 可体验（事件聚合 + 分享卡）</td></tr>
+    <tr><td><b>🏷️ 微评价标签</b></td><td>替代五星,点选 1–3 个标签（准时 +1,其余 +0.5）;双向盲评 24h 后展示,防报复性评价;聚合为「准时 98% · 沟通 96%」外显</td><td>✅ 可体验（标签评价计入信用事件）</td></tr>
+    <tr><td><b>💡 动态赏金建议</b></td><td>建议价 = 基础价 + 距离系数 + 时段系数 + 需求系数 − 在线跑手系数;MVP 用 7 天订单聚合,Redis 缓存;实时标注「偏低 / 合理 / 偏高」</td><td>✅ 可体验（发布页实时建议与判定）</td></tr>
+  </table>
+  <h3>落地顺序</h3>
+  <ul>
+    <li><b>第一阶段（已在原型实现）：</b>占座倒计时、微评价标签、信用事件账本、动态赏金建议——改动小、演示效果强。</li>
+    <li><b>第二阶段（需后端与并发控制）：</b>顺路拼单（事务接单）、取件码保险箱（KMS）、预约周期（定时 Worker）。</li>
+    <li><b>第三阶段（需实时通信）：</b>紧急接力广播（WebSocket/SSE）、信用护照分享。</li>
+  </ul>
+  <h3>质量保障</h3>
+  <p>仓库内置 <b>tests/smoke.test.js</b>（jsdom,51 条断言）:覆盖状态机全链路、信用事件聚合、占座倒计时/延长/自动释放、取件码访问日志、拼单事务、接力停播、排期触发、XSS 转义、刷新持久化等核心用例,<code>npm install jsdom && node tests/smoke.test.js</code> 一键回归。</p>
+</section>
+
 </div>
 <footer>帮跑校园 PRD v1.0 · 杨辰钊 · <a href="index.html" style="color:var(--green)">返回 Demo</a></footer>
 </body>
