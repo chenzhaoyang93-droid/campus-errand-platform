@@ -10,10 +10,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Node 版本口径与 package.json engines 一致，由 .nvmrc 单一来源维护
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version-file: '.nvmrc'
+          cache: npm
       - name: Install dependencies
         run: npm ci
+      # 语法闸门：挡住低级语法回归，比完整 lint 更轻
+      - name: Syntax check
+        run: npm run check
       - name: Run core-flow smoke tests
         run: npm test

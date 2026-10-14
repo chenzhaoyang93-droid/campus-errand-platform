@@ -1,14 +1,25 @@
 /**
- * 帮跑校园 · 核心链路冒烟测试（jsdom，77 条断言）
- * 覆盖：注册与学籍认证 / 一人一号 / 未认证权限拦截 / 成员切换与数据隔离 /
+ * 帮跑校园 · 核心链路冒烟测试（jsdom，151 条断言）
+ * 覆盖：注册与学籍认证 / 一人一号 / 未认证权限拦截 / 成员切换与数据隔离 / 跨账号归属 /
  *       XSS 转义 / 表单校验 / 搜索 / 排序 / 状态机(接单→配送→送达→确认) / 微评价标签 /
- *       信用事件账本 / 占座倒计时与延长 / 取件码保险箱 / 顺路拼单 / 紧急接力 / 预约周期 /
- *       动态赏金建议 / 取消发布 / 刷新持久化 / 自接拦截
- * 运行：npm install jsdom && node tests/smoke.test.js
+ *       信用事件账本 / 信用接单档位 / 履约率事件投影 / 占座倒计时与延长 / 取件码保险箱 /
+ *       顺路拼单 / 紧急接力 / 预约周期 / 动态赏金建议 / 取消发布 / 刷新持久化 / 自接拦截
+ * 运行：npm ci && npm test
  */
 const { JSDOM, VirtualConsole } = require('jsdom');
 const fs = require('fs');
-const html = fs.readFileSync(require('path').join(__dirname,'..','index.html'),'utf8');
+const path = require('path');
+const ROOT = path.join(__dirname, '..');
+/* index.html 通过 <script src> 引入 app.js；jsdom 默认不加载外部资源，
+   测试时按原语义内联注入，保证被测代码与线上完全一致。 */
+const rawHtml = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+const appJs = fs.readFileSync(path.join(ROOT, 'assets', 'app.js'), 'utf8');
+if (!rawHtml.includes('<script src="assets/app.js"></script>')) {
+  throw new Error('index.html 未引用 assets/app.js，测试内联注入失败');
+}
+/* 注意：必须用函数式替换，否则 app.js 里的 $& / $' 会被当作替换模式 */
+const html = rawHtml.replace('<script src="assets/app.js"></script>',
+  () => '<script>\n' + appJs + '\n</script>');
 
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let pass=0, fail=0;
@@ -372,8 +383,11 @@ function newDom(savedRaw) {
   w2.acceptTask(nOwnTask.id);
   check('归属: 切换后能真正接下该任务', w2.eval('S').taken.length===ownerTakenBase+1);
   check('归属: mine 字段未被持久化', w2.eval('S').tasks.every(t=>t.mine===undefined));
+  w2.closeSheet();
+  /* 切回原账号：订单账本隔离，且该任务已成交下架后归属判断不报错 */
   w2.switchAccount(nOwnerId);
-  check('归属: 切回原账号后仍识别为自己发布的', w2.eval(`isMine(S.tasks.find(t=>t.id===${nOwnTask.id}))`)===false || true);
+  check('归属: 切回后订单账本隔离（跑手接的单不串到发布者）', w2.eval('S').taken.every(o=>o.title!=='跨账号归属测试'));
+  check('归属: 已下架任务 isMine 不抛错', w2.eval('isMine(undefined)')===false);
 
   // === 26. 排期任务不丢失取件码 ===
   w2.goPublish('express');
@@ -475,6 +489,78 @@ function newDom(savedRaw) {
   w2.eval("createAndActivate({name:'分享卡同学', school:'香港理工大学', college:'计算学院', studentId:'SID9005', verified:true})");
   w2.openShareCard();
   check('分享卡: 使用当前成员姓名', d2.getElementById('sheetBody').textContent.includes('分享卡同学'));
+  w2.closeSheet();
+
+  // === 33. 学号脱敏：明文不落盘 ===
+  const accNew = w2.eval('S').accounts.find(a=>a.name==='分享卡同学');
+  check('脱敏: 学号不含原始明文', accNew.studentId !== 'SID9005');
+  check('脱敏: 学号为掩码形式', /^[A-Z0-9]{1,4}\*{4}[A-Z0-9]{0,2}$/.test(accNew.studentId));
+  check('脱敏: 存有不可逆哈希用于一人一号', !!accNew.sidHash && accNew.sidHash.startsWith('h'));
+  const stateDump2 = w2.localStorage.getItem('bangpao_campus_v3') || '';
+  check('脱敏: localStorage 全量状态无学号明文', !stateDump2.includes('SID9005'));
+
+  // === 34. 取件码密文生命周期：终态后清理 ===
+  w2.eval("createAndActivate({name:'清理同学', school:'香港理工大学', college:'计算学院', studentId:'SID9006', verified:true})");
+  w2.eval(`S.tasks.push({id:9031,ts:Date.now(),cat:"express",title:"保险箱清理测试",desc:"",reward:5,loc:"菜鸟驿站",dest:"紫荆公寓 3 号楼",time:"今天内",urgent:false,relay:null,hasSecret:true,dist:0.9,issuer:"张同学",credit:100,avatar:"张",ownerId:"u-other"})`);
+  w2.eval('S.secrets[9031] = { enc: obf("CLEAN-1234"), access:0, logs:[] }');
+  const cleanupTask = w2.eval('S.tasks.find(t=>t.id===9031)');
+  w2.acceptTask(cleanupTask.id);
+  check('清理: 履约中密文仍在', !!w2.eval('S').secrets[9031]);
+  w2.deliverOrder(cleanupTask.id);
+  w2.confirmOrder(cleanupTask.id);
+  check('清理: 结算后密文已销毁', w2.eval('S').secrets[9031]===undefined);
+  w2.closeSheet();
+  /* 取消发布同样清理 */
+  w2.goPublish('buy'); w2.eval("pubMode='now'");
+  d2.getElementById('fTitle').value='取消清理测试';
+  d2.getElementById('fReward').value='3';
+  d2.getElementById('fSecret').value='CANCEL-99';
+  w2.submitTask(); await sleep(1300);
+  const cancelItem = w2.eval('S').posted.find(p=>p.title==='取消清理测试');
+  check('清理: 发布后密文存在', !!w2.eval('S').secrets[cancelItem.id]);
+  w2.askCancelPosted(cancelItem.id);
+  w2.doCancelPosted(cancelItem.id);
+  check('清理: 取消后密文已销毁', w2.eval('S').secrets[cancelItem.id]===undefined);
+
+  // === 35. 准时判定与任务时限挂钩 ===
+  w2.eval("createAndActivate({name:'准时同学', school:'香港理工大学', college:'计算学院', studentId:'SID9007', verified:true})");
+  w2.eval(`S.tasks.push({id:9041,ts:Date.now(),cat:"express",title:"紧急一小时内",desc:"",reward:9,loc:"一食堂",dest:"图书馆",time:"1 小时内",urgent:true,relay:null,hasSecret:false,dist:0.6,issuer:"王同学",credit:100,avatar:"王",ownerId:"u-other"})`);
+  const urgentTask = w2.eval('S.tasks.find(t=>t.id===9041)');
+  w2.acceptTask(urgentTask.id);
+  const urgentOrder = w2.eval('S').taken.find(o=>o.id===9041);
+  check('准时: deadline 已按时限落盘', urgentOrder.deadlineAt - urgentOrder.ts === 3600e3);
+  /* 把 deadline 拨到过去 → 超时不应给准时分 */
+  const creditsBeforeLate = w2.eval('creditScore()');
+  w2.eval(`S.taken.find(o=>o.id===9041).deadlineAt = Date.now()-1000`);
+  w2.deliverOrder(9041);
+  w2.confirmOrder(9041);
+  check('准时: 超时完成不给准时加分（仅 +2）', w2.eval('creditScore()')===creditsBeforeLate+2);
+  w2.closeSheet();
+
+  // === 36. 距离由 POI 坐标计算，可复现 ===
+  w2.eval(`S.tasks.push({id:9051,ts:Date.now(),cat:"buy",title:"距离测试",desc:"",reward:4,loc:"一食堂",dest:"图书馆",time:"今天内",urgent:false,relay:null,hasSecret:false,dist:0,issuer:"王同学",credit:100,avatar:"王",ownerId:"u-other"})`);
+  const dSample = w2.eval("(function(){ const t=S.tasks.find(x=>x.id===9051); return distOf(t.loc, t.dest); })()");
+  check('距离: 由 POI 坐标确定性计算', typeof dSample === 'number' && dSample > 0);
+  check('距离: 同取送点计算可复现', dSample === w2.eval("(function(){ const t=S.tasks.find(x=>x.id===9051); return distOf(t.loc, t.dest); })()"));
+  /* 排序「离我最近」结果稳定：同一数据两次渲染顺序一致 */
+  w2.eval("S.ui.sort='dist'"); w2.renderTasks();
+  const orderA = [...d2.querySelectorAll('#taskList .t-title')].map(e=>e.textContent);
+  w2.renderTasks();
+  const orderB = [...d2.querySelectorAll('#taskList .t-title')].map(e=>e.textContent);
+  check('排序: 距离排序结果稳定', JSON.stringify(orderA)===JSON.stringify(orderB));
+  w2.eval("S.ui.sort='rec'"); w2.renderTasks();
+
+  // === 37. 拼单组回收 ===
+  w2.eval("createAndActivate({name:'拼单回收', school:'香港理工大学', college:'计算学院', studentId:'SID9008', verified:true})");
+  w2.eval(`S.tasks.push({id:9061,ts:Date.now(),cat:"buy",title:"拼单回收A",desc:"",reward:5,loc:"一食堂",dest:"图书馆",time:"今天内",urgent:false,relay:null,hasSecret:false,dist:0.6,issuer:"张",credit:100,avatar:"张",ownerId:"u-other"})`);
+  w2.eval(`S.tasks.push({id:9062,ts:Date.now(),cat:"buy",title:"拼单回收B",desc:"",reward:5,loc:"一食堂",dest:"教学楼",time:"今天内",urgent:false,relay:null,hasSecret:false,dist:0.7,issuer:"张",credit:100,avatar:"张",ownerId:"u-other"})`);
+  /* 前面用例遗留了若干未完结的拼单组，这里用相对量断言本组的新增与回收 */
+  const gBefore = w2.eval('S').groups.length;
+  w2.acceptGroup(9061, 9062);
+  check('回收: 拼单成交后新增 OrderGroup', w2.eval('S').groups.length===gBefore+1);
+  check('回收: 新组包含两单', (w2.eval('S').groups.find(g=>g.taskIds.includes(9061)&&g.taskIds.includes(9062))||null)!==null);
+  [9061, 9062].forEach(id=>{ w2.deliverOrder(id); w2.confirmOrder(id); w2.closeSheet(); });
+  check('回收: 组内订单全部完成后 OrderGroup 被清理', w2.eval('S').groups.length===gBefore);
   w2.closeSheet();
 
   check('运行时: 全程无未捕获异常', pageErrors.length===0);
